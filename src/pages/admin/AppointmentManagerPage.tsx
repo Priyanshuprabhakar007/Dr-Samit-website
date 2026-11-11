@@ -107,57 +107,28 @@ export const AppointmentManagerPage: React.FC = () => {
     }
   };
 
-  // CSV Export functionality
+  // Export the currently filtered records, escaping spreadsheet formula prefixes.
   const handleExportCSV = () => {
-    if (enquiries.length === 0) {
-      alert('No records available to export.');
+    if (!filteredEnquiries.length) {
+      setNotification({ type: 'error', message: 'No matching enquiries to export.' });
       return;
     }
-
-    const headers = [
-      'Reference Code',
-      'Full Name',
-      'Phone',
-      'Email',
-      'Treatment',
-      'Consultation Type',
-      'Preferred Date',
-      'Preferred Time',
-      'Status',
-      'Created At',
-      'Clinical Notes',
-      'Admin Notes',
-    ];
-
-    const rows = filteredEnquiries.map((e) => [
-      `"${e.referenceCode}"`,
-      `"${e.fullName.replace(/"/g, '""')}"`,
-      `"${e.phone}"`,
-      `"${e.email}"`,
-      `"${e.treatmentInterest}"`,
-      `"${e.consultationType}"`,
-      `"${e.preferredDate}"`,
-      `"${e.preferredTime}"`,
-      `"${e.status}"`,
-      `"${e.createdAt}"`,
-      `"${(e.clinicalNotes || '').replace(/"/g, '""')}"`,
-      `"${(e.adminNotes || '').replace(/"/g, '""')}"`,
-    ]);
-
-    const csvContent =
-      'data:text/csv;charset=utf-8,' +
-      [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-
-    const encodedUri = encodeURI(csvContent);
+    const headers = ['Reference Code','Full Name','Phone','Email','Treatment','Consultation Type','Preferred Date','Preferred Time','Status','Created At','Clinical Notes','Admin Notes'];
+    const cell = (value: unknown) => {
+      const raw = String(value ?? '');
+      const safe = /^\s*[=+\-@]/.test(raw) ? "'" + raw : raw;
+      return '"' + safe.replace(/"/g, '""') + '"';
+    };
+    const rows = filteredEnquiries.map(e => [e.referenceCode,e.fullName,e.phone,e.email,e.treatmentInterest,e.consultationType,e.preferredDate,e.preferredTime,e.status,e.createdAt,e.clinicalNotes || '',e.adminNotes || '']);
+    const csv = '\uFEFF' + [headers,...rows].map(row => row.map(cell).join(',')).join('\r\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute(
-      'download',
-      `Dr_Samik_Sharma_Enquiries_${new Date().toISOString().split('T')[0]}.csv`
-    );
+    link.href = url;
+    link.download = 'Dr_Samik_Sharma_Enquiries_' + new Date().toISOString().slice(0,10) + '.csv';
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   // Filtered List
