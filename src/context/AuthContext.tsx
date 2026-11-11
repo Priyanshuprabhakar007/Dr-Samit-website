@@ -38,7 +38,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const checkAdminPrivileges = async (currentUser: User) => {
     try {
-      const isOwnerAccount = currentUser.email?.toLowerCase() === OWNER_EMAIL.toLowerCase();
+      const isOwnerAccount = currentUser.emailVerified && currentUser.email?.toLowerCase() === OWNER_EMAIL.toLowerCase();
 
       // 1. Check custom claims on token
       const idTokenResult = await currentUser.getIdTokenResult();
@@ -112,14 +112,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsOwner(false);
     } catch (err: any) {
       console.error('Error verifying admin authorization:', err);
-      // If owner email, allow owner status even during initial rule handshake
-      if (currentUser.email?.toLowerCase() === OWNER_EMAIL.toLowerCase()) {
-        setIsAdmin(true);
-        setIsOwner(true);
-      } else {
-        setIsAdmin(false);
-        setIsOwner(false);
-      }
+      // Authorization errors must fail closed.
+      setIsAdmin(false);
+      setIsOwner(false);
     }
   };
 
