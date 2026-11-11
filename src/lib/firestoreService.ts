@@ -452,59 +452,24 @@ export async function logAudit(
 export async function createEnquiry(
   enquiry: Omit<EnquiryRecord, 'id' | 'referenceCode' | 'status' | 'createdAt'>
 ): Promise<{ success: boolean; referenceCode: string; id?: string; message?: string }> {
-  // First attempt server-side rate-limited and validated endpoint
+  let response: Response;
   try {
-    const res = await fetch('/api/enquiries', {
+    response = await fetch('/api/enquiries', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(enquiry),
     });
-
-    if (res.ok) {
-      const data = await res.json();
-      return {
-        success: true,
-        referenceCode: data.referenceCode,
-        id: data.id,
-        message: data.message,
-      };
-    } else if (res.status === 429) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.error || 'Too many consultation requests. Please wait a few minutes.');
-    }
-  } catch (apiErr: any) {
-    if (apiErr.message && apiErr.message.includes('Too many')) {
-      throw apiErr;
-    }
-    console.warn('Server endpoint notice, using direct Firestore client write:', apiErr);
+  } catch {
+    throw new Error('Unable to reach the consultation service. Please try again.');
   }
 
-  // Fallback to direct client Firestore write
-  const referenceCode = `SS-SHALBY-${Math.floor(10000 + Math.random() * 90000)}`;
-  const now = new Date().toISOString();
-
-  const docData: any = {
-    referenceCode,
-    fullName: enquiry.fullName.trim(),
-    email: enquiry.email.trim().toLowerCase(),
-    phone: enquiry.phone.trim(),
-    procedure: enquiry.treatmentInterest || 'Comprehensive Assessment',
-    treatmentInterest: enquiry.treatmentInterest || 'Comprehensive Assessment',
-    consultationType: enquiry.consultationType || 'in-person',
-    preferredDate: enquiry.preferredDate || new Date().toISOString().split('T')[0],
-    preferredTime: enquiry.preferredTime || '11:00 AM',
-    clinicalNotes: enquiry.clinicalNotes || '',
-    status: 'new',
-    createdAt: now,
-  };
-
-  const docRef = await addDoc(collection(db, 'enquiries'), docData);
-  return {
-    success: true,
-    referenceCode,
-    id: docRef.id,
-    message: 'Consultation request submitted for clinical review at Shalby Hospital.',
-  };
+  const result = await response.json().catch(() => null) as
+    | { success?: boolean; referenceCode?: string; id?: string; message?: string; error?: string }
+    | null;
+  if (!response.ok || result?.success !== true || !result.referenceCode) {
+    throw new Error(result?.error || 'Unable to save your request. Please try again.');
+  }
+  return { success: true, referenceCode: result.referenceCode, id: result.id, message: result.message };
 }
 
 export async function getEnquiries(): Promise<EnquiryRecord[]> {
