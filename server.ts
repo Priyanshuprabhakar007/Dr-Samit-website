@@ -4,6 +4,7 @@
  */
 
 import express, { Request, Response, NextFunction } from 'express';
+import { randomUUID } from 'node:crypto';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -68,7 +69,8 @@ async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
 
-  app.use(express.json());
+  app.disable('x-powered-by');
+  app.use(express.json({ limit: '16kb' }));
 
   // -------------------------------------------------------------
   // API: Health Check
@@ -86,7 +88,7 @@ async function startServer() {
   // API: Patient Consultation Intake Submission (Server Validated + Rate Limited)
   // -------------------------------------------------------------
   app.post('/api/enquiries', async (req: Request, res: Response): Promise<void> => {
-    const clientIp = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'unknown';
+    const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
 
     if (!checkEnquiryRateLimit(clientIp)) {
       res.status(429).json({
@@ -104,7 +106,6 @@ async function startServer() {
       consultationType,
       preferredDate,
       preferredTime,
-      clinicalNotes,
     } = req.body;
 
     // Strict Server-Side Validations
@@ -133,9 +134,8 @@ async function startServer() {
     const chosenType = consultationType === 'virtual' ? 'virtual' : 'in-person';
     const chosenDate = typeof preferredDate === 'string' ? preferredDate.trim() : '';
     const chosenTime = typeof preferredTime === 'string' ? preferredTime.trim() : '11:00 AM';
-    const sanitizedNotes = typeof clinicalNotes === 'string' ? clinicalNotes.slice(0, 1000).trim() : '';
 
-    const referenceCode = `SS-SHALBY-${Math.floor(10000 + Math.random() * 90000)}`;
+    const referenceCode = `SS-${randomUUID().slice(0, 12).toUpperCase()}`;
     const now = new Date().toISOString();
 
     const enquiryDoc = {
@@ -148,9 +148,7 @@ async function startServer() {
       consultationType: chosenType,
       preferredDate: chosenDate,
       preferredTime: chosenTime,
-      clinicalNotes: sanitizedNotes,
       status: 'new',
-      clientIp: clientIp.replace(/::ffff:/, ''),
       createdAt: now,
       updatedAt: now,
     };
@@ -166,16 +164,10 @@ async function startServer() {
         message:
           'Consultation intake request submitted. This is a preliminary clinical intake for review, not an auto-confirmed appointment. Dr. Samik Sharma’s surgical coordinator will contact you to verify medical suitability and confirm your appointment slot.',
       });
-    } catch (err: any) {
+    } catch (err) {
       console.error('Server Firestore error saving enquiry:', err);
-      // Return reference code even on transient cloud error so patient is not stranded
-      res.status(200).json({
-        success: true,
-        referenceCode,
-        status: 'queued',
-        message:
-          'Consultation intake received and queued for clinical triage at Shalby Hospital, Mohali.',
-      });
+      // Never claim a booking was received if the database write failed.
+      res.status(503).json({ success: false, error: 'Unable to save your request. Please try again later.' });
     }
   });
 
@@ -183,56 +175,30 @@ async function startServer() {
   // API: Verify Administrator Authorization & Roles
   // -------------------------------------------------------------
   app.post('/api/auth/verify-admin', async (req: Request, res: Response): Promise<void> => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      res.status(401).json({ isAdmin: false, error: 'Missing Bearer authorization token.' });
+    const token = req.headers.authorization?.match(/^Bearer\s+(.+)$/)?.[1];
+    if (!token) {
+      res.status(401).json({ isAdmin: false, error: 'Missing token.' });
       return;
     }
-
-    const idToken = authHeader.split('Bearer ')[1].trim();
-
     try {
-      let decodedToken;
-      try {
-        decodedToken = await adminAuth.verifyIdToken(idToken);
-      } catch (tokenErr) {
-        // Fallback: If verification needs public keys
-        console.warn('ID token verify notice:', tokenErr);
+      const verified = await adminAuth.verifyIdToken(token, true);
+      if (verified.email_verified !== true) {
+        res.status(403).json({ isAdmin: false, error: 'Verified email required.' });
+        return;
       }
-
-      const email = (decodedToken?.email || (req.body.email as string) || '').toLowerCase();
-      const uid = decodedToken?.uid || (req.body.uid as string) || '';
-
+      const email = (verified.email || '').toLowerCase();
+      const uid = verified.uid;
       const isOwner = email === OWNER_EMAIL.toLowerCase();
-
-      // Check admin status in Firestore
-      let isAdmin = isOwner;
-      if (!isAdmin && uid) {
-        try {
-          const adminDoc = await adminDb.collection('admins').doc(uid).get();
-          if (adminDoc.exists) {
-            const data = adminDoc.data();
-            isAdmin = data?.role === 'admin' || data?.role === 'owner';
-          }
-        } catch (dbErr) {
-          console.warn('Admin check lookup note:', dbErr);
-        }
+      let isAdmin = isOwner || verified.admin === true;
+      if (!isAdmin) {
+        const record = await adminDb.collection('admins').doc(uid).get();
+        const role = record.data()?.role;
+        isAdmin = record.exists && (role === 'admin' || role === 'owner');
       }
-
-      // Check custom claims
-      if (!isAdmin && decodedToken && (decodedToken as any).admin === true) {
-        isAdmin = true;
-      }
-
-      res.json({
-        isAdmin,
-        isOwner,
-        email,
-        uid,
-      });
-    } catch (err: any) {
-      console.error('Verify admin error:', err);
-      res.status(500).json({ isAdmin: false, error: err.message || 'Internal authorization error' });
+      res.json({ isAdmin, isOwner, email, uid });
+    } catch (error) {
+      console.warn('Admin verification failed:', error);
+      res.status(401).json({ isAdmin: false, error: 'Invalid authentication token.' });
     }
   });
 
@@ -241,71 +207,45 @@ async function startServer() {
   // Assigns custom claims and updates /admins/{uid}
   // -------------------------------------------------------------
   app.post('/api/admin/set-role', async (req: Request, res: Response): Promise<void> => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      res.status(401).json({ error: 'Unauthorized.' });
+    const token = req.headers.authorization?.match(/^Bearer\s+(.+)$/)?.[1];
+    if (!token) {
+      res.status(401).json({ error: 'Missing token.' });
       return;
     }
-
-    const idToken = authHeader.split('Bearer ')[1].trim();
-    const { targetUid, targetEmail, role } = req.body;
-
-    if (!targetUid || !targetEmail || !role) {
-      res.status(400).json({ error: 'targetUid, targetEmail, and role are required.' });
-      return;
-    }
-
     try {
-      let callerEmail = '';
-      try {
-        const decoded = await adminAuth.verifyIdToken(idToken);
-        callerEmail = (decoded.email || '').toLowerCase();
-      } catch {
-        // Fallback checking caller email from body if dev mock
-        callerEmail = (req.body.callerEmail || '').toLowerCase();
-      }
-
-      if (callerEmail !== OWNER_EMAIL.toLowerCase()) {
-        res.status(403).json({ error: 'Only the primary Practice Owner can grant administrator privileges.' });
+      const caller = await adminAuth.verifyIdToken(token, true);
+      const callerEmail = (caller.email || '').toLowerCase();
+      if (caller.email_verified !== true || callerEmail !== OWNER_EMAIL.toLowerCase()) {
+        res.status(403).json({ error: 'Only the verified owner may change roles.' });
         return;
       }
-
-      // Set custom claims via Admin SDK if available
-      try {
-        await adminAuth.setCustomUserClaims(targetUid, {
-          admin: role === 'admin' || role === 'owner',
-          role,
-        });
-      } catch (claimsErr) {
-        console.warn('Custom claims assignment note (fallback to doc):', claimsErr);
+      const { targetUid, targetEmail, role } = req.body;
+      if (typeof targetUid !== 'string' || !targetUid ||
+          typeof targetEmail !== 'string' || !targetEmail ||
+          !['admin', 'owner'].includes(role)) {
+        res.status(400).json({ error: 'Invalid target user or role.' });
+        return;
       }
-
-      // Record in /admins/{targetUid}
+      const target = await adminAuth.getUser(targetUid);
+      if (!target.email || target.email.toLowerCase() !== targetEmail.trim().toLowerCase()) {
+        res.status(400).json({ error: 'Target UID and email do not match.' });
+        return;
+      }
+      await adminAuth.setCustomUserClaims(targetUid, { ...target.customClaims, admin: true, role });
       await adminDb.collection('admins').doc(targetUid).set({
-        uid: targetUid,
-        email: targetEmail.toLowerCase(),
-        role,
-        grantedBy: callerEmail,
-        updatedAt: new Date().toISOString(),
+        uid: targetUid, email: target.email.toLowerCase(), role,
+        grantedBy: callerEmail, updatedAt: new Date().toISOString(),
       }, { merge: true });
-
-      // Audit log
       await adminDb.collection('audit_logs').add({
-        action: 'ASSIGN_ADMIN_ROLE',
-        resource: 'admins',
-        resourceId: targetUid,
+        action: 'ASSIGN_ADMIN_ROLE', resource: 'admins', resourceId: targetUid,
         performedBy: callerEmail,
-        details: `Assigned role '${role}' to ${targetEmail}`,
+        details: `Assigned role '${role}' to ${target.email}`,
         timestamp: new Date().toISOString(),
       });
-
-      res.json({
-        success: true,
-        message: `Administrator privilege granted to ${targetEmail}`,
-      });
-    } catch (err: any) {
-      console.error('Error assigning role:', err);
-      res.status(500).json({ error: err.message || 'Failed to assign role.' });
+      res.json({ success: true, message: 'Administrator permissions updated.' });
+    } catch (error) {
+      console.error('Role assignment failed:', error);
+      res.status(500).json({ error: 'Unable to assign administrator permissions.' });
     }
   });
 
