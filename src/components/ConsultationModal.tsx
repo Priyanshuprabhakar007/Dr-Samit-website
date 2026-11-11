@@ -29,7 +29,7 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
-  const [notes, setNotes] = useState('');
+  const [submitError, setSubmitError] = useState<string | null>(null);
   
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
@@ -77,6 +77,7 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
     e.preventDefault();
     if (!validate()) return;
 
+    setSubmitError(null);
     setIsSubmitting(true);
     try {
       const { createEnquiry } = await import('../lib/firestoreService');
@@ -88,17 +89,13 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
         consultationType: consultType,
         preferredDate,
         preferredTime,
-        clinicalNotes: notes,
       });
 
       setBookingRef(result.referenceCode);
       setSubmitted(true);
     } catch (err) {
-      console.warn('Firestore submission fallback:', err);
-      // Fallback local reference code
-      const ref = `SS-SHALBY-${Math.floor(10000 + Math.random() * 90000)}`;
-      setBookingRef(ref);
-      setSubmitted(true);
+      setSubmitError(err instanceof Error ? err.message : 'Unable to submit. Please try again.');
+      setSubmitted(false);
     } finally {
       setIsSubmitting(false);
     }
@@ -117,7 +114,7 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
     setFullName('');
     setPhone('');
     setEmail('');
-    setNotes('');
+    setSubmitError(null);
     setPreferredDate('');
     setErrors({});
   };
@@ -183,7 +180,7 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
                   Thank You, {fullName}
                 </h3>
                 <p className="text-xs text-[#AFA89F] font-light mt-2 max-w-md mx-auto leading-relaxed">
-                  Your appointment request has been scheduled for clinical review with Dr. Samik Sharma&apos;s team at Shalby Hospital, Mohali.
+                  Your consultation request was received for review. Your appointment is not yet confirmed.
                 </p>
               </div>
 
@@ -218,7 +215,7 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
               </div>
 
               <div className="text-[11px] text-[#AFA89F] font-light max-w-md mx-auto">
-                Our surgical coordinator will contact you via <strong className="text-[#F6F0E9]">{phone}</strong> and <strong className="text-[#F6F0E9]">{email}</strong> within 24 business hours to confirm your consultation slot and provide pre-appointment clinical guidance.
+                Our surgical coordinator will contact you via <strong className="text-[#F6F0E9]">{phone}</strong> and <strong className="text-[#F6F0E9]">{email}</strong> to discuss your requested appointment.
               </div>
 
               <div className="flex items-center justify-center gap-4 pt-2">
@@ -415,18 +412,6 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs uppercase tracking-[0.14em] text-[#C9A47F] font-sans font-medium mb-1.5">
-                    Clinical Notes or Specific Concerns (Optional)
-                  </label>
-                  <textarea
-                    rows={3}
-                    placeholder="Briefly describe your aesthetic objectives, previous surgeries, or timeline requirements..."
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    className="w-full bg-[#12100F] border border-[#C9A47F]/30 p-3 text-xs text-[#F6F0E9] placeholder-[#7C766F] focus:outline-none focus:border-[#C9A47F] resize-none"
-                  />
-                </div>
               </div>
 
               {/* Direct Configurable Destination Clarification */}
@@ -434,10 +419,11 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
                 <ShieldCheck className="w-4 h-4 text-[#C9A47F] shrink-0 mt-0.5" />
                 <div>
                   <span className="text-[#F6F0E9] font-medium">Configured Clinic Destination: </span>
-                  Appointments are processed directly by Dr. Samik Sharma&apos;s surgical desk at Shalby Hospital, Mohali. All submitted clinical queries are encrypted and subject to medical patient confidentiality.
+                  This is a request, not a confirmed appointment. Please share medical details privately with the clinic.
                 </div>
               </div>
 
+              {submitError && <div role="alert" className="p-3 border border-rose-500/40 bg-rose-950/40 text-xs text-rose-200">{submitError}</div>}
               {/* Form Action Buttons */}
               <div className="pt-2 flex items-center justify-end gap-3">
                 <button
@@ -452,7 +438,7 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
                   disabled={isSubmitting}
                   className="px-8 py-3.5 bg-[#C9A47F] text-[#0B0B0B] text-xs font-semibold uppercase tracking-[0.16em] hover:bg-[#DFCAAF] transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {isSubmitting ? 'Encrypting & Booking...' : 'Confirm & Request Slot'}
+                  {isSubmitting ? 'Sending Request...' : 'Confirm & Request Slot'}
                 </button>
               </div>
 
