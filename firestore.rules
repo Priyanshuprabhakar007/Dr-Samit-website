@@ -45,16 +45,8 @@ service cloud.firestore {
     // Public write: strict validation schema
     // Read/Update/Delete: STRICTLY ADMIN ONLY - Never accessible to public or anonymous users
     match /enquiries/{enquiryId} {
-      allow create: if (
-        isValidId(enquiryId) &&
-        request.resource.data.keys().hasAll(['fullName', 'phone', 'email', 'procedure', 'preferredDate', 'status']) &&
-        request.resource.data.fullName is string && request.resource.data.fullName.size() >= 2 && request.resource.data.fullName.size() <= 100 &&
-        request.resource.data.phone is string && request.resource.data.phone.size() >= 7 && request.resource.data.phone.size() <= 30 &&
-        request.resource.data.email is string && request.resource.data.email.size() <= 100 &&
-        request.resource.data.procedure is string && request.resource.data.procedure.size() <= 100 &&
-        request.resource.data.preferredDate is string && request.resource.data.preferredDate.size() <= 30 &&
-        request.resource.data.status == 'new'
-      );
+      // Enquiries must go through the rate-limited backend. No direct public writes.
+      allow create: if false;
       allow get, list, update, delete: if isAdmin();
     }
 
