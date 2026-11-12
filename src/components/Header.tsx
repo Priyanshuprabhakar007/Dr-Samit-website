@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, ArrowRight, ShieldCheck, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -18,6 +18,34 @@ export const Header: React.FC<HeaderProps> = ({ onOpenBooking }) => {
   const [hoveredLink, setHoveredLink] = useState<string | null>(null);
   const location = useLocation();
   const isHome = location.pathname === '/';
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
+  const menuCloseRef = useRef<HTMLButtonElement>(null);
+
+  // Prevent the page from scrolling behind the navigation drawer.
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    menuCloseRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileMenuOpen(false);
+    };
+    const onResize = () => {
+      if (window.innerWidth >= 1024) setMobileMenuOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    window.addEventListener('resize', onResize);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('resize', onResize);
+      menuTriggerRef.current?.focus();
+    };
+  }, [mobileMenuOpen]);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -50,34 +78,34 @@ export const Header: React.FC<HeaderProps> = ({ onOpenBooking }) => {
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between gap-8">
+          <div className="flex items-center justify-between gap-2 sm:gap-4 xl:gap-8">
             
             {/* Left: Brand Monogram and Identity */}
             <Link
               to="/"
-              className="flex items-center gap-3.5 group focus:outline-none focus-visible:ring-1 focus-visible:ring-[#C9A47F]"
+              className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 group focus:outline-none focus-visible:ring-1 focus-visible:ring-[#C9A47F]"
               aria-label="Dr. Samik Sharma - Plastic & Aesthetic Surgeon"
             >
               {/* Elegant SS Monogram Badge */}
-              <div className="relative w-10 sm:w-11 h-10 sm:h-11 border border-[#C9A47F]/50 rounded-[1px] flex items-center justify-center bg-gradient-to-br from-[#24201E] to-[#12100F] shadow-md group-hover:border-[#C9A47F] group-hover:shadow-[0_0_15px_rgba(201,164,127,0.2)] transition-all duration-300">
+              <div className="relative shrink-0 w-9 sm:w-11 h-9 sm:h-11 border border-[#C9A47F]/50 rounded-[1px] flex items-center justify-center bg-gradient-to-br from-[#24201E] to-[#12100F] shadow-md group-hover:border-[#C9A47F] group-hover:shadow-[0_0_15px_rgba(201,164,127,0.2)] transition-all duration-300">
                 <span className="font-serif text-base sm:text-lg font-light tracking-wider text-[#C9A47F] select-none">
                   SS
                 </span>
                 <span className="absolute -bottom-0.5 -right-0.5 w-1 h-1 bg-[#C9A47F] opacity-90" />
               </div>
 
-              <div className="flex flex-col">
-                <span className="text-sm sm:text-base md:text-[17px] font-serif font-medium tracking-[0.2em] text-[#F6F0E9] group-hover:text-white transition-colors duration-200 leading-tight uppercase">
+              <div className="flex flex-col min-w-0">
+                <span className="text-[15px] sm:text-[19px] md:text-[21px] font-serif font-semibold tracking-[0.075em] text-[#F6F0E9] group-hover:text-white transition-colors duration-200 leading-tight uppercase">
                   DR. SAMIK SHARMA
                 </span>
-                <span className="text-[9px] sm:text-[10px] font-sans tracking-[0.24em] text-[#C9A47F] uppercase font-light">
+                <span className="text-[9px] sm:text-[10px] font-sans tracking-[0.19em] text-[#C9A47F] uppercase font-light">
                   PLASTIC &amp; AESTHETIC SURGEON
                 </span>
               </div>
             </Link>
 
             {/* Middle: Desktop Navigation Links with Smooth Underline */}
-            <nav className="hidden lg:flex items-center gap-9 text-[13px] font-sans font-medium tracking-[0.08em] text-[#AFA89F]">
+            <nav className="hidden lg:flex items-center gap-8 xl:gap-9 text-[13px] font-sans font-medium tracking-[0.025em] text-[#AFA89F]">
               {navLinks.map((link) => {
                 const isAnchor = link.href.includes('#');
                 const isActive = link.href === location.pathname;
@@ -127,11 +155,11 @@ export const Header: React.FC<HeaderProps> = ({ onOpenBooking }) => {
             </nav>
 
             {/* Right: Outlined Consultation CTA & Mobile Toggle */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4 shrink-0">
               <button
                 onClick={() => onOpenBooking()}
                 type="button"
-                className="hidden sm:inline-flex items-center gap-2.5 px-5 sm:px-6 py-2.5 text-xs font-sans tracking-[0.14em] uppercase font-semibold text-[#F6F0E9] border border-[#C9A47F] hover:bg-[#C9A47F] hover:text-[#0B0B0B] hover:shadow-[0_0_20px_rgba(201,164,127,0.25)] transition-all duration-300 rounded-none cursor-pointer"
+                className="hidden lg:inline-flex items-center gap-2.5 px-5 sm:px-6 py-2.5 text-xs font-sans tracking-[0.14em] uppercase font-semibold text-[#F6F0E9] border border-[#C9A47F] hover:bg-[#C9A47F] hover:text-[#0B0B0B] hover:shadow-[0_0_20px_rgba(201,164,127,0.25)] transition-all duration-300 rounded-none cursor-pointer"
               >
                 <span>Book Consultation</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -139,11 +167,13 @@ export const Header: React.FC<HeaderProps> = ({ onOpenBooking }) => {
 
               {/* Mobile Menu Button */}
               <button
+                ref={menuTriggerRef}
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 type="button"
-                className="lg:hidden p-2 text-[#F6F0E9] hover:text-[#C9A47F] border border-[#C9A47F]/30 hover:border-[#C9A47F] transition-colors focus:outline-none"
+                className="lg:hidden w-11 h-11 inline-flex items-center justify-center text-[#F6F0E9] hover:text-[#C9A47F] border border-[#C9A47F]/30 hover:border-[#C9A47F] transition-colors focus:outline-none"
                 aria-label={mobileMenuOpen ? 'Close Menu' : 'Open Menu'}
                 aria-expanded={mobileMenuOpen}
+                aria-controls="mobile-site-navigation"
               >
                 {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
@@ -168,8 +198,12 @@ export const Header: React.FC<HeaderProps> = ({ onOpenBooking }) => {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 28, stiffness: 260 }}
-              className="fixed top-0 right-0 w-full max-w-sm h-full bg-[#12100F] border-l border-[#C9A47F]/30 p-6 flex flex-col justify-between overflow-y-auto shadow-2xl"
+              className="fixed top-0 right-0 w-full max-w-sm h-[100dvh] bg-[#12100F] border-l border-[#C9A47F]/30 p-5 sm:p-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] flex flex-col justify-between gap-8 overflow-y-auto overscroll-contain shadow-2xl"
               onClick={(e) => e.stopPropagation()}
+              id="mobile-site-navigation"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Mobile site navigation"
             >
               <div>
                 <div className="flex items-center justify-between pb-6 border-b border-[#C9A47F]/20">
@@ -187,15 +221,16 @@ export const Header: React.FC<HeaderProps> = ({ onOpenBooking }) => {
                     </div>
                   </div>
                   <button
+                    ref={menuCloseRef}
                     onClick={() => setMobileMenuOpen(false)}
-                    className="p-2 text-[#AFA89F] hover:text-[#F6F0E9] border border-white/10"
+                    className="min-w-11 min-h-11 inline-flex items-center justify-center text-[#AFA89F] hover:text-[#F6F0E9] border border-white/10"
                     aria-label="Close menu"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
 
-                <nav className="mt-8 flex flex-col gap-4">
+                <nav className="mt-5 sm:mt-8 flex flex-col gap-1.5 sm:gap-3">
                   {navLinks.map((link, idx) => {
                     const isAnchor = link.href.includes('#');
 
@@ -207,7 +242,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenBooking }) => {
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: 0.05 * idx, duration: 0.3 }}
                         onClick={() => setMobileMenuOpen(false)}
-                        className="text-lg font-serif tracking-wider text-[#F6F0E9] hover:text-[#C9A47F] transition-colors py-2 border-b border-white/5 flex items-center justify-between"
+                        className="text-lg font-serif tracking-wider text-[#F6F0E9] hover:text-[#C9A47F] transition-colors py-3 border-b border-white/5 flex items-center justify-between"
                       >
                         <span>{link.label}</span>
                         <span className="text-xs text-[#C9A47F]/60 font-mono">0{idx + 1}</span>
@@ -222,7 +257,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenBooking }) => {
                         <Link
                           to={link.href}
                           onClick={() => setMobileMenuOpen(false)}
-                          className="text-lg font-serif tracking-wider text-[#F6F0E9] hover:text-[#C9A47F] transition-colors py-2 border-b border-white/5 flex items-center justify-between block"
+                          className="text-lg font-serif tracking-wider text-[#F6F0E9] hover:text-[#C9A47F] transition-colors py-3 border-b border-white/5 flex items-center justify-between block"
                         >
                           <span>{link.label}</span>
                           <span className="text-xs text-[#C9A47F]/60 font-mono">0{idx + 1}</span>

@@ -135,7 +135,7 @@ export const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ onOpenBooking })
   };
 
   return (
-    <div className="min-h-screen bg-[#0B0B0B] text-[#F6F0E9] pt-24 sm:pt-28 font-sans selection:bg-[#C9A47F]/30 selection:text-[#F6F0E9]">
+    <div className="min-h-screen bg-[#0B0B0B] text-[#F6F0E9] pt-24 sm:pt-28 min-w-0 font-sans selection:bg-[#C9A47F]/30 selection:text-[#F6F0E9]">
       {/* Article Header & Breadcrumbs */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-10 pb-8">
         <Link
@@ -153,7 +153,7 @@ export const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ onOpenBooking })
           </span>
         </div>
 
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-serif font-light text-[#F6F0E9] leading-tight mb-6">
+        <h1 className="text-[clamp(1.85rem,8.5vw,3rem)] sm:text-4xl md:text-5xl font-serif font-light text-[#F6F0E9] leading-tight mb-6 break-words">
           {post.title}
         </h1>
 
@@ -201,7 +201,7 @@ export const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ onOpenBooking })
 
       {/* Featured Cover Image */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 mb-12">
-        <div className="aspect-[21/9] sm:aspect-[16/8] overflow-hidden border border-[#C9A47F]/20 relative bg-[#141211]">
+        <div className="aspect-[16/10] sm:aspect-[16/8] overflow-hidden border border-[#C9A47F]/20 relative bg-[#141211]">
           <img
             src={post.coverImage}
             alt={post.title}

@@ -54,7 +54,7 @@ export const FinalCTA: React.FC<FinalCTAProps> = ({ onOpenBooking, data }) => {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.7, delay: 0.1 }}
-          className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-serif font-light text-[#F6F0E9] tracking-tight mb-6 leading-tight"
+          className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-serif font-normal text-[#F6F0E9] tracking-[-0.045em] mb-6 leading-[1.1]"
         >
           {data?.headline ? (
             data.headline

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { TreatmentItem } from '../data/surgeryData';
 import { X, ArrowRight, Clock, ShieldCheck, Activity, Check } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -19,6 +19,20 @@ export const TreatmentDetailModal: React.FC<TreatmentDetailModalProps> = ({
   onClose,
   onBookTreatment,
 }) => {
+  useEffect(() => {
+    if (!treatment) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onEscape);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.removeEventListener('keydown', onEscape);
+    };
+  }, [treatment?.id, onClose]);
+
   if (!treatment) return null;
 
   return (
@@ -26,7 +40,7 @@ export const TreatmentDetailModal: React.FC<TreatmentDetailModalProps> = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/85 backdrop-blur-md overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-stretch sm:items-center justify-center p-0 sm:p-6 bg-black/85 backdrop-blur-md overflow-hidden"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -37,20 +51,20 @@ export const TreatmentDetailModal: React.FC<TreatmentDetailModalProps> = ({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 15 }}
         transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] as const }}
-        className="relative w-full max-w-3xl bg-[#1C1817] border border-[#C9A47F]/40 shadow-2xl my-8 overflow-hidden text-[#F6F0E9]"
+        className="relative w-full max-w-3xl min-w-0 h-[100dvh] sm:h-auto sm:max-h-[calc(100dvh-3rem)] flex flex-col bg-[#1C1817] border border-[#C9A47F]/40 shadow-2xl sm:my-4 overflow-hidden text-[#F6F0E9]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-20 w-9 h-9 bg-[#0B0B0B]/80 hover:bg-[#C9A47F] text-[#F6F0E9] hover:text-[#0B0B0B] border border-[#C9A47F]/40 flex items-center justify-center transition-colors cursor-pointer"
+          className="absolute top-3 right-3 z-20 w-11 h-11 bg-[#0B0B0B]/80 hover:bg-[#C9A47F] text-[#F6F0E9] hover:text-[#0B0B0B] border border-[#C9A47F]/40 flex items-center justify-center transition-colors cursor-pointer"
           aria-label="Close dialog"
         >
           <X className="w-4 h-4" />
         </button>
 
         {/* Hero Image Header */}
-        <div className="relative aspect-[16/9] sm:aspect-[21/9] w-full bg-[#0B0B0B] overflow-hidden">
+        <div className="relative aspect-[16/9] sm:aspect-[21/9] w-full shrink-0 bg-[#0B0B0B] overflow-hidden">
           <img
             src={treatment.image}
             alt={treatment.title}
@@ -74,7 +88,7 @@ export const TreatmentDetailModal: React.FC<TreatmentDetailModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 sm:p-8 space-y-6 max-h-[65vh] overflow-y-auto">
+        <div className="p-4 sm:p-8 space-y-6 flex-1 min-h-0 overflow-y-auto overscroll-contain">
           
           {/* Quick Specifications Strip */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-[#12100F] border border-[#C9A47F]/20 text-xs">
@@ -147,7 +161,7 @@ export const TreatmentDetailModal: React.FC<TreatmentDetailModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="p-6 bg-[#141110] border-t border-[#C9A47F]/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] bg-[#141110] border-t border-[#C9A47F]/20 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 shrink-0">
           <p className="text-[11px] text-[#AFA89F] font-light text-center sm:text-left">
             In-depth evaluation with Dr. Samik Sharma at Shalby Hospital, Mohali.
           </p>
@@ -166,9 +180,9 @@ export const TreatmentDetailModal: React.FC<TreatmentDetailModalProps> = ({
                 onBookTreatment(treatment.title);
               }}
               type="button"
-              className="w-1/2 sm:w-auto px-6 py-3 bg-[#C9A47F] text-[#0B0B0B] text-xs font-semibold uppercase tracking-[0.16em] hover:bg-[#DFCAAF] transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              className="w-1/2 sm:w-auto min-w-0 px-3 sm:px-6 py-3 bg-[#C9A47F] text-[#0B0B0B] text-xs font-semibold uppercase tracking-[0.16em] hover:bg-[#DFCAAF] transition-colors flex items-center justify-center gap-2 cursor-pointer"
             >
-              <span>Consult for {treatment.title}</span>
+              <span className="text-center leading-snug">Request Consultation</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>

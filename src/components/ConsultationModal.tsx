@@ -42,6 +42,21 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
     }
   }, [initialTreatment]);
 
+  // Keep the consultation sheet usable on phones without scrolling the page behind it.
+  useEffect(() => {
+    if (!isOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onEscape);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.removeEventListener('keydown', onEscape);
+    };
+  }, [isOpen, onClose]);
+
   // Set default minimum date to tomorrow
   const getTomorrowDateString = () => {
     const tomorrow = new Date();
@@ -124,7 +139,7 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/85 backdrop-blur-md overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-stretch sm:items-center justify-center p-0 sm:p-6 bg-black/85 backdrop-blur-md overflow-hidden"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -135,20 +150,20 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 15 }}
         transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] as const }}
-        className="relative w-full max-w-2xl bg-[#1C1817] border border-[#C9A47F]/40 shadow-2xl my-8 overflow-hidden text-[#F6F0E9]"
+        className="relative w-full max-w-2xl h-[100dvh] sm:h-auto sm:max-h-[calc(100dvh-3rem)] flex flex-col min-w-0 bg-[#1C1817] border border-[#C9A47F]/40 shadow-2xl sm:my-4 overflow-hidden text-[#F6F0E9]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-20 w-9 h-9 bg-[#0B0B0B]/80 hover:bg-[#C9A47F] text-[#F6F0E9] hover:text-[#0B0B0B] border border-[#C9A47F]/40 flex items-center justify-center transition-colors cursor-pointer"
+          className="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 w-11 h-11 bg-[#0B0B0B]/80 hover:bg-[#C9A47F] text-[#F6F0E9] hover:text-[#0B0B0B] border border-[#C9A47F]/40 flex items-center justify-center transition-colors cursor-pointer"
           aria-label="Close dialog"
         >
           <X className="w-4 h-4" />
         </button>
 
         {/* Modal Header */}
-        <div className="p-6 sm:p-8 bg-[#12100F] border-b border-[#C9A47F]/20">
+        <div className="p-5 pt-[max(1.25rem,env(safe-area-inset-top))] sm:p-8 bg-[#12100F] border-b border-[#C9A47F]/20 shrink-0 pr-16">
           <div className="inline-flex items-center gap-2 mb-2">
             <span className="w-4 h-[1px] bg-[#C9A47F]" />
             <span className="text-[10px] font-sans tracking-[0.25em] text-[#C9A47F] uppercase font-semibold">
@@ -164,7 +179,7 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
         </div>
 
         {/* Modal Content */}
-        <div className="p-6 sm:p-8 max-h-[75vh] overflow-y-auto">
+        <div className="p-4 sm:p-8 min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[max(1.5rem,env(safe-area-inset-bottom))]">
           {submitted ? (
             /* Success / Confirmation State */
             <div className="py-6 text-center space-y-6">
@@ -186,10 +201,10 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
 
               {/* Reference ID Card */}
               <div className="p-4 bg-[#12100F] border border-[#C9A47F]/30 max-w-md mx-auto text-left space-y-2.5">
-                <div className="flex items-center justify-between text-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                   <span className="text-[#AFA89F] font-mono">Reference Code:</span>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-[#C9A47F] font-semibold tracking-wider">
+                    <span className="font-mono text-[#C9A47F] font-semibold tracking-wider break-all">
                       {bookingRef}
                     </span>
                     <button
@@ -218,7 +233,7 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
                 Our surgical coordinator will contact you via <strong className="text-[#F6F0E9]">{phone}</strong> and <strong className="text-[#F6F0E9]">{email}</strong> to discuss your requested appointment.
               </div>
 
-              <div className="flex items-center justify-center gap-4 pt-2">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4 pt-2">
                 <button
                   onClick={resetForm}
                   type="button"
@@ -353,6 +368,7 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
                   </label>
                   <input
                     type="text"
+                    autoComplete="name"
                     placeholder="e.g. Eleanor Vance"
                     value={fullName}
                     onChange={(e) => {
@@ -375,6 +391,8 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
                     </label>
                     <input
                       type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
                       placeholder="+91 98765 43210"
                       value={phone}
                       onChange={(e) => {
@@ -396,6 +414,8 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
                     </label>
                     <input
                       type="email"
+                      inputMode="email"
+                      autoComplete="email"
                       placeholder="patient@example.com"
                       value={email}
                       onChange={(e) => {
@@ -425,18 +445,18 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
 
               {submitError && <div role="alert" className="p-3 border border-rose-500/40 bg-rose-950/40 text-xs text-rose-200">{submitError}</div>}
               {/* Form Action Buttons */}
-              <div className="pt-2 flex items-center justify-end gap-3">
+              <div className="pt-2 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-5 py-3 border border-white/10 text-xs text-[#AFA89F] hover:text-[#F6F0E9] uppercase tracking-wider cursor-pointer"
+                  className="w-full sm:w-auto px-5 py-3 border border-white/10 text-xs text-[#AFA89F] hover:text-[#F6F0E9] uppercase tracking-wider cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-8 py-3.5 bg-[#C9A47F] text-[#0B0B0B] text-xs font-semibold uppercase tracking-[0.16em] hover:bg-[#DFCAAF] transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full sm:w-auto px-6 sm:px-8 py-3.5 bg-[#C9A47F] text-[#0B0B0B] text-xs font-semibold uppercase tracking-[0.16em] hover:bg-[#DFCAAF] transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? 'Sending Request...' : 'Confirm & Request Slot'}
                 </button>

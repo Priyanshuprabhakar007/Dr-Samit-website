@@ -143,7 +143,7 @@ export const TreatmentsSection: React.FC<TreatmentsSectionProps> = ({
         {/* Horizontal Scrollable Gallery Container with snap */}
         <div
           ref={scrollContainerRef}
-          className="flex gap-6 sm:gap-8 overflow-x-auto pb-6 scroll-smooth snap-x snap-mandatory scrollbar-none"
+          className="flex gap-4 sm:gap-8 overflow-x-auto overscroll-x-contain pb-6 scroll-smooth snap-x snap-mandatory scrollbar-none"
         >
           {filteredTreatments.map((treatment, idx) => (
             <motion.article
@@ -152,7 +152,7 @@ export const TreatmentsSection: React.FC<TreatmentsSectionProps> = ({
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: idx * 0.08 }}
-              className="group relative bg-[#1A1716] border border-[#C9A47F]/25 overflow-hidden flex flex-col justify-between transition-all duration-500 hover:border-[#C9A47F] hover:shadow-2xl hover:shadow-[#C9A47F]/10 min-w-[300px] sm:min-w-[360px] lg:min-w-[380px] max-w-[380px] snap-start flex-shrink-0"
+              className="group relative bg-[#1A1716] border border-[#C9A47F]/25 overflow-hidden flex flex-col justify-between transition-all duration-500 hover:border-[#C9A47F] hover:shadow-2xl hover:shadow-[#C9A47F]/10 min-w-[min(82vw,300px)] sm:min-w-[360px] lg:min-w-[380px] max-w-[380px] snap-start flex-shrink-0"
             >
               <Link
                 to={`/treatments/${treatment.slug}`}
@@ -245,7 +245,7 @@ export const TreatmentsSection: React.FC<TreatmentsSectionProps> = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center flex-wrap gap-3">
             <Link
               to="/treatments"
               className="px-5 py-2.5 text-xs font-sans tracking-[0.12em] uppercase font-medium text-[#F6F0E9] border border-[#C9A47F]/40 hover:border-[#C9A47F] transition-colors whitespace-nowrap shrink-0"

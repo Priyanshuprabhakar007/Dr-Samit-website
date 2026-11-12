@@ -126,7 +126,7 @@ export const TreatmentsPage: React.FC<TreatmentsPageProps> = ({ onOpenBooking })
             </div>
 
             {/* Oversized Headline */}
-            <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-serif font-light text-[#F6F0E9] leading-[1.04] tracking-tight mb-7 text-balance">
+            <h1 className="text-[clamp(2.05rem,9vw,3rem)] sm:text-6xl md:text-7xl lg:text-8xl font-serif font-light text-[#F6F0E9] leading-[1.1] tracking-tight mb-7 text-balance break-words">
               THE ART OF <br />
               <span className="font-serif italic text-[#C9A47F]">TRANSFORMATION</span>
             </h1>

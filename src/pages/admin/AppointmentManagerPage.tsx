@@ -56,6 +56,21 @@ export const AppointmentManagerPage: React.FC = () => {
   const [savingNote, setSavingNote] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  // Patient details should scroll inside the sheet, not behind it.
+  useEffect(() => {
+    if (!activeEnquiry) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setActiveEnquiry(null);
+    };
+    document.addEventListener('keydown', onEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onEscape);
+    };
+  }, [Boolean(activeEnquiry)]);
+
   useEffect(() => {
     loadList();
   }, []);
@@ -330,8 +345,51 @@ export const AppointmentManagerPage: React.FC = () => {
             <p>No consultation records matched your filters.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+          <>
+            {/* On phones, show useful readable cards instead of a wide table. */}
+            <div className="md:hidden divide-y divide-white/10">
+              {filteredEnquiries.map(enq => (
+                <article key={enq.id || enq.referenceCode} className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-mono tracking-wide text-[#C9A47F] break-all">{enq.referenceCode}</p>
+                      <h2 className="mt-1 text-lg font-serif text-[#F6F0E9] break-words">{enq.fullName}</h2>
+                      <p className="text-xs text-[#AFA89F] break-words">{enq.treatmentInterest}</p>
+                    </div>
+                    {enq.priority === 'high' && <span className="shrink-0 border border-rose-500/40 px-2 py-1 text-[10px] text-rose-300 uppercase">High</span>}
+                  </div>
+                  <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-3 text-xs">
+                    <div className="min-w-0">
+                      <p className="text-[10px] uppercase tracking-wider text-[#7C766F] mb-1">Requested consultation</p>
+                      <p className="text-[#F6F0E9]">{enq.preferredDate || 'Not specified'} · {enq.preferredTime}</p>
+                      <p className="text-[#AFA89F]">{enq.consultationType === 'in-person' ? 'Shalby OPD' : 'Teleconsultation'}</p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] uppercase tracking-wider text-[#7C766F] mb-1">Staff follow-up</p>
+                      <p className={isFollowUpDue(enq, today) ? 'font-semibold text-amber-300' : 'text-[#F6F0E9]'}>{enq.followUpDate || 'Not scheduled'}</p>
+                      <p className="text-[#AFA89F] break-all">{enq.phone}</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/10">
+                    <select
+                      aria-label={`Status for ${enq.fullName}`}
+                      value={enq.status}
+                      onChange={event => enq.id && handleStatusChange(enq.id, event.target.value as EnquiryRecord['status'])}
+                      className="min-w-0 flex-1 bg-[#12100F] border border-[#C9A47F]/30 text-[#F6F0E9] px-2 py-2.5 text-sm"
+                    >
+                      <option value="new">New</option>
+                      <option value="contacted">Contacted</option>
+                      <option value="scheduled">Scheduled</option>
+                      <option value="closed">Closed</option>
+                    </select>
+                    <a href={`tel:${enq.phone}`} title="Call patient" aria-label={`Call ${enq.fullName}`} className="w-11 h-11 shrink-0 inline-flex items-center justify-center border border-white/10 text-[#C9A47F]"><Phone className="w-4 h-4" /></a>
+                    <button type="button" onClick={() => openEnquiry(enq)} className="px-3 h-11 shrink-0 border border-[#C9A47F]/40 text-[#C9A47F] text-xs font-semibold uppercase tracking-wide">View / edit</button>
+                  </div>
+                </article>
+              ))}
+            </div>
+            <div className="hidden md:block overflow-x-auto" aria-label="Consultation enquiry table">
+              <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-white/5 bg-[#141211] text-[10px] text-[#C9A47F] uppercase tracking-wider font-semibold">
                   <th className="py-3 px-4">Ref Code</th>
@@ -459,17 +517,18 @@ export const AppointmentManagerPage: React.FC = () => {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 
       {/* Patient Detail & Clinical Notes Drawer / Modal */}
       {activeEnquiry && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm"
           onClick={() => setActiveEnquiry(null)}
         >
           <div
-            className="bg-[#1C1817] border border-[#C9A47F] max-w-xl w-full p-6 sm:p-8 space-y-6 my-8 max-h-[85vh] overflow-y-auto text-[#F6F0E9]"
+            className="bg-[#1C1817] border border-[#C9A47F] max-w-xl w-full min-w-0 p-4 sm:p-8 space-y-6 my-0 sm:my-4 max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain text-[#F6F0E9]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-white/10">
@@ -489,14 +548,14 @@ export const AppointmentManagerPage: React.FC = () => {
             </div>
 
             {/* Quick Contact & Details */}
-            <div className="grid grid-cols-2 gap-3 text-xs p-4 bg-[#141211] border border-white/5">
+            <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3 text-xs p-3 sm:p-4 bg-[#141211] border border-white/5">
               <div>
                 <span className="text-[10px] text-[#7C766F] uppercase font-mono">Contact Phone:</span>
                 <p className="font-mono text-[#F6F0E9] font-medium">{activeEnquiry.phone}</p>
               </div>
               <div>
                 <span className="text-[10px] text-[#7C766F] uppercase font-mono">Email Address:</span>
-                <p className="font-mono text-[#F6F0E9] truncate font-medium">{activeEnquiry.email}</p>
+                <p className="font-mono text-[#F6F0E9] break-all font-medium">{activeEnquiry.email}</p>
               </div>
               <div>
                 <span className="text-[10px] text-[#7C766F] uppercase font-mono">Target Procedure:</span>

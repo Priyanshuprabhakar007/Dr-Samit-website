@@ -116,7 +116,7 @@ export const TreatmentDetailPage: React.FC<TreatmentDetailPageProps> = ({ onOpen
             className="max-w-3xl"
           >
             {/* 2. Breadcrumb & Subtitle indicating category */}
-            <nav aria-label="Breadcrumb" className="inline-flex items-center gap-2.5 mb-5 text-xs font-sans tracking-[0.16em] uppercase text-[#AFA89F]">
+            <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2.5 mb-5 text-xs font-sans tracking-[0.16em] uppercase text-[#AFA89F]">
               <Link to="/" className="hover:text-[#C9A47F] transition-colors">
                 Home
               </Link>
@@ -129,7 +129,7 @@ export const TreatmentDetailPage: React.FC<TreatmentDetailPageProps> = ({ onOpen
             </nav>
 
             {/* Large Elegant Serif Procedure Title */}
-            <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-[5rem] font-serif font-light text-[#F6F0E9] leading-[1.05] tracking-tight mb-4 text-balance">
+            <h1 className="text-[clamp(2.1rem,9vw,3rem)] sm:text-6xl md:text-7xl lg:text-[5rem] font-serif font-light text-[#F6F0E9] leading-[1.05] tracking-tight mb-4 text-balance break-words">
               {treatment.title}
             </h1>
 
@@ -161,7 +161,7 @@ export const TreatmentDetailPage: React.FC<TreatmentDetailPageProps> = ({ onOpen
       {/* Specifications Strip */}
       <section className="py-6 bg-[#171413] border-b border-[#C9A47F]/20 text-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 min-[420px]:grid-cols-2 md:grid-cols-4 gap-5 sm:gap-6">
             <div className="flex items-center gap-3">
               <Clock className="w-4 h-4 text-[#C9A47F] shrink-0" />
               <div>

@@ -37,7 +37,7 @@ export const AboutSection: React.FC<AboutSectionProps> = ({ onOpenBooking, data 
             </span>
             <span className="w-8 h-[1px] bg-[#C9A47F]" />
           </div>
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif font-light text-[#F6F0E9] tracking-tight">
+          <h2 className="text-4xl sm:text-5xl md:text-[3.4rem] font-serif font-normal text-[#F6F0E9] tracking-[-0.04em] leading-[1.13]">
             The Surgeon &amp; Credentials
           </h2>
           <div className="w-12 h-[1px] bg-[#C9A47F]/40 mx-auto mt-5" />

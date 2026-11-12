@@ -37,6 +37,29 @@ export const AdminLayout: React.FC = () => {
   const location = useLocation();
 
   useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileMenuOpen(false);
+    };
+    const onResize = () => {
+      if (window.innerWidth >= 768) setMobileMenuOpen(false);
+    };
+    document.addEventListener('keydown', onEscape);
+    window.addEventListener('resize', onResize);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.removeEventListener('keydown', onEscape);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [mobileMenuOpen]);
+
+  useEffect(() => {
     if (!loading && !user) {
       navigate('/admin/login', { replace: true, state: { from: location.pathname } });
     }
@@ -152,24 +175,37 @@ export const AdminLayout: React.FC = () => {
         </div>
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="p-2 text-[#C9A47F] hover:text-[#F6F0E9]"
-          aria-label="Toggle Navigation"
+          className="w-11 h-11 inline-flex items-center justify-center shrink-0 text-[#C9A47F] hover:text-[#F6F0E9]"
+          aria-label={mobileMenuOpen ? "Close admin navigation" : "Open admin navigation"}
+          aria-expanded={mobileMenuOpen}
+          aria-controls="admin-mobile-navigation"
         >
           {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
         </button>
       </div>
 
+      {/* Mobile backdrop: closes the drawer without navigating. */}
+      {mobileMenuOpen && (
+        <button
+          type="button"
+          aria-label="Close admin navigation"
+          className="fixed inset-0 z-40 bg-black/75 md:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
       {/* Sidebar Navigation */}
       <aside
-        className={`fixed md:sticky top-0 left-0 h-screen w-64 bg-[#181514] border-r border-[#C9A47F]/20 flex flex-col justify-between z-30 transition-transform duration-300 ${
+        id="admin-mobile-navigation"
+        className={`fixed md:sticky top-0 left-0 h-[100dvh] md:h-screen w-[min(18rem,85vw)] md:w-64 bg-[#181514] border-r border-[#C9A47F]/20 flex flex-col justify-between overflow-y-auto overscroll-contain z-50 md:z-30 transition-transform duration-300 ${
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
         <div>
           {/* Brand Monogram & Header */}
-          <div className="p-6 border-b border-[#C9A47F]/20">
-            <Link to="/admin" className="flex items-center gap-3 group">
-              <div className="w-10 h-10 rounded-full border border-[#C9A47F] flex items-center justify-center text-sm font-serif text-[#C9A47F] group-hover:bg-[#C9A47F] group-hover:text-[#0B0B0B] transition-colors">
+          <div className="p-5 md:p-6 border-b border-[#C9A47F]/20 relative">
+            <Link to="/admin" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 group pr-7">
+              <div className="w-10 h-10 shrink-0 rounded-full border border-[#C9A47F] flex items-center justify-center text-sm font-serif text-[#C9A47F] group-hover:bg-[#C9A47F] group-hover:text-[#0B0B0B] transition-colors">
                 SS
               </div>
               <div>
@@ -190,6 +226,15 @@ export const AdminLayout: React.FC = () => {
               </span>
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(false)}
+            className="absolute top-5 right-3 md:hidden w-10 h-10 flex items-center justify-center text-[#C9A47F] border border-[#C9A47F]/30"
+            aria-label="Close admin navigation"
+          >
+            <X className="w-5 h-5" />
+          </button>
 
           {/* Navigation Links */}
           <nav className="p-4 space-y-1">

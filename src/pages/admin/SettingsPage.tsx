@@ -241,7 +241,7 @@ export const SettingsPage: React.FC = () => {
             <label className="block text-xs uppercase tracking-wider text-[#C9A47F] mb-1 font-medium">
               City, State &amp; Pincode
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 min-[440px]:grid-cols-3 gap-2">
               <input
                 type="text"
                 placeholder="City"
@@ -405,7 +405,7 @@ export const SettingsPage: React.FC = () => {
                     ROOT OWNER
                   </span>
                 </div>
-                <p className="text-[11px] text-[#AFA89F] font-mono">{OWNER_EMAIL}</p>
+                <p className="text-[11px] text-[#AFA89F] font-mono break-all">{OWNER_EMAIL}</p>
               </div>
             </div>
             <span className="text-[10px] text-[#7C766F] font-mono">Immutable</span>
@@ -420,8 +420,8 @@ export const SettingsPage: React.FC = () => {
                 className="p-3.5 bg-[#141211] border border-white/5 flex items-center justify-between text-xs"
               >
                 <div>
-                  <p className="font-medium text-[#F6F0E9]">{admin.displayName || 'Clinical Staff'}</p>
-                  <p className="text-[11px] text-[#AFA89F] font-mono">{admin.email}</p>
+                  <p className="font-medium text-[#F6F0E9] break-words">{admin.displayName || 'Clinical Staff'}</p>
+                  <p className="text-[11px] text-[#AFA89F] font-mono break-all">{admin.email}</p>
                 </div>
 
                 <div className="flex items-center gap-3">
