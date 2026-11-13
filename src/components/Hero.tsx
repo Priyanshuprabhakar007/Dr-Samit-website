@@ -22,6 +22,7 @@ interface HeroSlide {
   description: string;
   image: string;
   imagePosition: string;
+  mobileImagePosition?: string;
   procedure: string;
   link: string;
   linkLabel: string;
@@ -37,6 +38,7 @@ const STATIC_TREATMENT_SLIDES: HeroSlide[] = [
     description: 'Rhinoplasty considers nasal shape, breathing and facial harmony, with a plan tailored to each individual.',
     image: '/src/assets/images/treatment_rhinoplasty_1794213538703.jpg',
     imagePosition: 'center center',
+    mobileImagePosition: '57% center',
     procedure: 'Rhinoplasty',
     link: '/treatments/rhinoplasty',
     linkLabel: 'Explore Rhinoplasty',
@@ -49,6 +51,7 @@ const STATIC_TREATMENT_SLIDES: HeroSlide[] = [
     description: 'Facelift and neck lift procedures are planned around facial anatomy, tissue quality and personal goals.',
     image: '/src/assets/images/treatment_facelift_1794213539762.jpg',
     imagePosition: 'center center',
+    mobileImagePosition: '56% center',
     procedure: 'Facelift & Neck Lift',
     link: '/treatments/facelift-neck-lift',
     linkLabel: 'Explore Facelift',
@@ -61,6 +64,7 @@ const STATIC_TREATMENT_SLIDES: HeroSlide[] = [
     description: 'Liposuction is a body-contouring procedure for selected areas of persistent fat, not a weight-loss treatment.',
     image: '/src/assets/images/treatment_liposuction_1794213577090.jpg',
     imagePosition: 'center center',
+    mobileImagePosition: '50% center',
     procedure: 'Liposuction',
     link: '/treatments/liposuction',
     linkLabel: 'Explore Body Contouring',
@@ -73,6 +77,7 @@ const STATIC_TREATMENT_SLIDES: HeroSlide[] = [
     description: 'Eyelid surgery may help address excess skin or puffiness after a careful clinical consultation.',
     image: '/src/assets/images/treatment_eyelid_1794213577248.jpg',
     imagePosition: 'center center',
+    mobileImagePosition: '50% center',
     procedure: 'Eyelid Surgery',
     link: '/treatments/eyelid-surgery',
     linkLabel: 'Explore Eyelid Surgery',
@@ -109,6 +114,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenBooking, heroData }) => {
           'Personalized plastic and aesthetic surgery by Dr. Samik Sharma in Mohali, combining surgical precision with thoughtful patient care.',
         image: heroData?.heroImage || '/src/assets/images/hero_editorial_beauty_1794213535182.jpg',
         imagePosition: cmsImagePosition,
+        mobileImagePosition: cmsImagePosition,
         procedure: 'The Aesthetic Perspective',
         link: heroData?.secondaryCtaLink || '/treatments',
         linkLabel: heroData?.secondaryCtaLabel || 'Explore Treatments',
@@ -176,27 +182,37 @@ export const Hero: React.FC<HeroProps> = ({ onOpenBooking, heroData }) => {
       onTouchCancel={() => { touchStartX.current = null; }}
     >
       <div className="absolute inset-0 z-0 bg-[#0D0B0A]" aria-hidden="true">
-        <div className="absolute inset-0 lg:left-[24%] overflow-hidden">
-          <AnimatePresence initial={false} mode="sync">
+        <AnimatePresence initial={false} mode="sync">
+          <motion.div
+            key={slide.id}
+            className={
+              'absolute right-0 top-0 h-[66%] w-full overflow-hidden sm:h-[74%] lg:top-0 lg:h-full ' +
+              (slide.id === 'introduction'
+                ? 'lg:w-[52%] xl:w-[49%]'
+                : 'lg:w-[63%] xl:w-[60%]')
+            }
+            initial={prefersReducedMotion ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={prefersReducedMotion ? undefined : { opacity: 0 }}
+            transition={{ opacity: { duration: prefersReducedMotion ? 0 : 0.85, ease: 'easeInOut' } }}
+          >
             <motion.img
-              key={slide.id}
               src={slide.image}
               alt=""
-              className="absolute inset-0 h-full w-full object-cover"
-              style={{ objectPosition: slide.imagePosition }}
-              initial={prefersReducedMotion ? false : { opacity: 0, scale: 1.025 }}
-              animate={{ opacity: 1, scale: prefersReducedMotion ? 1 : 1.105 }}
-              exit={{ opacity: 0 }}
-              transition={{
-                opacity: { duration: prefersReducedMotion ? 0 : 1, ease: 'easeInOut' },
-                scale: { duration: prefersReducedMotion ? 0 : AUTO_ADVANCE_MS / 1000, ease: 'linear' },
-              }}
+              className="hero-image-framing absolute inset-0 h-full w-full object-cover"
+              style={{
+                '--hero-image-mobile-position': slide.mobileImagePosition || slide.imagePosition,
+                '--hero-image-desktop-position': slide.imagePosition,
+              } as React.CSSProperties}
+              initial={prefersReducedMotion ? false : { scale: 1 }}
+              animate={{ scale: prefersReducedMotion ? 1 : (slide.id === 'introduction' ? 1.03 : 1.05) }}
+              transition={{ scale: { duration: prefersReducedMotion ? 0 : AUTO_ADVANCE_MS / 1000, ease: 'linear' } }}
               draggable={false}
             />
-          </AnimatePresence>
-        </div>
-        {/* A dark left reading area; the image remains vibrant on the right. */}
-        <div className="absolute inset-0 bg-[linear-gradient(0deg,rgba(8,7,7,0.97)_0%,rgba(9,8,8,0.82)_35%,rgba(9,8,8,0.32)_78%,rgba(9,8,8,0.25)_100%)] lg:bg-[linear-gradient(90deg,#0C0B0A_0%,rgba(12,11,10,0.99)_20%,rgba(12,11,10,0.85)_41%,rgba(12,11,10,0.12)_76%),linear-gradient(0deg,rgba(7,6,6,0.85)_0%,transparent_36%)]" />
+          </motion.div>
+        </AnimatePresence>
+        {/* Graduated shading keeps the text readable without hiding the portrait. */}
+        <div className="absolute inset-0 bg-[linear-gradient(0deg,#0C0B0A_1%,rgba(12,11,10,0.93)_32%,rgba(12,11,10,0.33)_72%,rgba(12,11,10,0.15)_100%)] lg:bg-[linear-gradient(90deg,#0C0B0A_0%,rgba(12,11,10,0.99)_30%,rgba(12,11,10,0.82)_49%,rgba(12,11,10,0.12)_80%),linear-gradient(0deg,rgba(7,6,6,0.78)_0%,transparent_30%)]" />
         <div className="absolute inset-0 luxury-noise opacity-20" />
       </div>
 
