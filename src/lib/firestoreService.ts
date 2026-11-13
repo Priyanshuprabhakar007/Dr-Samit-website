@@ -469,11 +469,23 @@ export async function createEnquiry(
     throw new Error('Unable to reach the consultation service. Please try again.');
   }
 
-  const result = await response.json().catch(() => null) as
-    | { success?: boolean; referenceCode?: string; id?: string; message?: string; error?: string }
-    | null;
+  const contentType = response.headers.get('content-type') || '';
+  const result = contentType.includes('application/json')
+    ? await response.json().catch(() => null) as
+        | { success?: boolean; referenceCode?: string; id?: string; message?: string; error?: string }
+        | null
+    : null;
   if (!response.ok || result?.success !== true || !result.referenceCode) {
-    throw new Error(result?.error || 'Unable to save your request. Please try again.');
+    // HTML from /api/enquiries indicates a routing/deployment problem, not
+    // an actual appointment confirmation. Never mark the request as saved.
+    if (!contentType.includes('application/json')) {
+      throw new Error(
+        response.status === 200
+          ? 'The appointment service is not connected. Please contact the clinic directly.'
+          : `Appointment service unavailable (HTTP ${response.status}). Please contact the clinic directly.`
+      );
+    }
+    throw new Error(result?.error || `Unable to save your request (HTTP ${response.status}). Please try again.`);
   }
   return { success: true, referenceCode: result.referenceCode, id: result.id, message: result.message };
 }
