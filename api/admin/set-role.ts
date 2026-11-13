@@ -1,4 +1,4 @@
-import { getBearerToken, getClinicAdmin, OWNER_EMAIL } from '../../src/server/vercelFirebase';
+import { getBearerToken, getClinicAdmin, OWNER_EMAIL } from '../../src/server/vercelFirebase.js';
 
 export default {
   async fetch(request: Request) {

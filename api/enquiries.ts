@@ -1,6 +1,6 @@
 import { createHmac, randomUUID } from 'node:crypto';
-import { getClinicAdmin } from '../src/server/vercelFirebase';
-import { validateEnquiry } from '../src/server/enquiryValidation';
+import { getClinicAdmin } from '../src/server/vercelFirebase.js';
+import { validateEnquiry } from '../src/server/enquiryValidation.js';
 
 function json(data: object, status: number) {
   return Response.json(data, { status, headers: { 'Cache-Control': 'no-store' } });

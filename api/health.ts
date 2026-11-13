@@ -1,4 +1,4 @@
-import { getClinicAdmin } from '../src/server/vercelFirebase';
+import { getClinicAdmin } from '../src/server/vercelFirebase.js';
 
 /** Server-side readiness: verifies configured secrets and a Firestore read. */
 export default {
