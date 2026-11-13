@@ -5,7 +5,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, ArrowUpRight, ChevronLeft, ChevronRight, MapPin, Pause, Play } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, MapPin, Pause, Play } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { HomepageData } from '../lib/firestoreService';
 
@@ -121,10 +121,6 @@ export const Hero: React.FC<HeroProps> = ({ onOpenBooking, heroData }) => {
   const isPaused = manualPause || focusPause || !documentVisible;
   const allowAutoAdvance = !prefersReducedMotion && !isPaused;
 
-  const moveTo = useCallback((index: number) => {
-    setActiveIndex(((index % slides.length) + slides.length) % slides.length);
-  }, [slides.length]);
-
   const next = useCallback(() => {
     setActiveIndex((index) => (index + 1) % slides.length);
   }, [slides.length]);
@@ -209,9 +205,20 @@ export const Hero: React.FC<HeroProps> = ({ onOpenBooking, heroData }) => {
           <div className="max-w-[690px]">
             <div className="mb-6 flex items-center gap-3 sm:mb-8">
               <span aria-hidden="true" className="h-px w-8 shrink-0 bg-[#D9B995] sm:w-12" />
-              <p className="max-w-[420px] text-[9px] font-semibold uppercase leading-relaxed tracking-[0.18em] text-[#E7C3A0] sm:text-[11px] sm:tracking-[0.25em]">
+              <p className="max-w-[420px] flex-1 text-[9px] font-semibold uppercase leading-relaxed tracking-[0.18em] text-[#E7C3A0] sm:text-[11px] sm:tracking-[0.25em]">
                 {slide.category}
               </p>
+              {!prefersReducedMotion && (
+                <button
+                  type="button"
+                  onClick={() => setManualPause((value) => !value)}
+                  aria-label={manualPause ? 'Resume automatic hero slideshow' : 'Pause automatic hero slideshow'}
+                  aria-pressed={manualPause}
+                  className="inline-flex size-10 shrink-0 items-center justify-center text-[#E7C3A0]/80 hover:text-[#F6F0E9] focus-visible:outline-2 focus-visible:outline-[#E4C4A4]"
+                >
+                  {manualPause ? <Play aria-hidden="true" className="size-4" /> : <Pause aria-hidden="true" className="size-4" />}
+                </button>
+              )}
             </div>
 
             <AnimatePresence mode="wait" initial={false}>
@@ -256,16 +263,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenBooking, heroData }) => {
           </div>
         </div>
 
-        {/* Procedure label floats over the image, not over the subject's face. */}
-        <div className="pointer-events-none absolute right-5 top-[31%] hidden items-center gap-4 xl:flex">
-          <span className="h-px w-12 bg-[#D1B090]/65" />
-          <div className="text-right">
-            <p className="text-[9px] uppercase tracking-[0.25em] text-[#E2C2A2]">Featured focus</p>
-            <p className="mt-1 font-serif text-2xl text-[#FCF7F1]">{slide.procedure}</p>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-5 border-t border-[#D7B08B]/30 pt-5 sm:gap-6 lg:flex-row lg:items-end lg:justify-between lg:gap-12">
+        <div className="border-t border-[#D7B08B]/30 pt-5">
           <div className="max-w-[330px] shrink-0">
             <p className="font-serif text-[21px] tracking-[0.015em] text-[#F9EFE5] sm:text-2xl">Dr. Samik Sharma</p>
             <p className="mt-1 flex items-center gap-1.5 text-[10px] font-medium tracking-[0.035em] text-[#C9B5A1] sm:text-xs">
@@ -275,66 +273,6 @@ export const Hero: React.FC<HeroProps> = ({ onOpenBooking, heroData }) => {
             <p className="mt-1.5 text-[9px] text-[#A79786]">Editorial treatment imagery · Not patient before-and-after results</p>
           </div>
 
-          <div className="min-w-0 flex-1 lg:max-w-[720px]">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex min-w-0 flex-1 gap-2 sm:gap-3" role="group" aria-label="Select featured treatment slide">
-                {slides.map((item, index) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    aria-label={'Show slide ' + (index + 1) + ' of ' + slides.length + ': ' + item.procedure}
-                    aria-pressed={index === activeIndex}
-                    onClick={() => moveTo(index)}
-                    className="group min-w-0 flex-1 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-[#E4C4A4]"
-                  >
-                    <span className={'block text-[10px] font-semibold tracking-[0.08em] ' + (index === activeIndex ? 'text-[#F6E7D8]' : 'text-[#9B8F85]')}>
-                      {String(index + 1).padStart(2, '0')}
-                    </span>
-                    <span className="mt-2 block h-[2px] w-full overflow-hidden bg-white/25">
-                      {index === activeIndex && (
-                        <span
-                          key={item.id}
-                          className={'block h-full w-full origin-left bg-[#E5C19D] ' + (prefersReducedMotion ? '' : 'hero-slide-progress')}
-                          style={{ animationPlayState: isPaused ? 'paused' : 'running' }}
-                        />
-                      )}
-                    </span>
-                  </button>
-                ))}
-              </div>
-              <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-                {!prefersReducedMotion && (
-                  <button
-                    type="button"
-                    onClick={() => setManualPause((value) => !value)}
-                    aria-label={manualPause ? 'Resume automatic slides' : 'Pause automatic slides'}
-                    className="inline-flex size-10 items-center justify-center border border-white/30 text-[#F6F0E9] transition-colors hover:border-[#E4C4A4] hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-[#E4C4A4]"
-                  >
-                    {manualPause ? <Play aria-hidden="true" className="size-4" /> : <Pause aria-hidden="true" className="size-4" />}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={previous}
-                  aria-label="Previous featured slide"
-                  className="inline-flex size-10 items-center justify-center border border-white/30 text-[#F6F0E9] transition-colors hover:border-[#E4C4A4] hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-[#E4C4A4]"
-                >
-                  <ChevronLeft aria-hidden="true" className="size-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={next}
-                  aria-label="Next featured slide"
-                  className="inline-flex size-10 items-center justify-center border border-white/30 text-[#F6F0E9] transition-colors hover:border-[#E4C4A4] hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-[#E4C4A4]"
-                >
-                  <ChevronRight aria-hidden="true" className="size-4" />
-                </button>
-              </div>
-            </div>
-            <p className="mt-1 hidden text-right text-[10px] uppercase tracking-[0.2em] text-[#B7A99C] lg:block">
-              Swipe or select a procedure · {slide.procedure}
-            </p>
-          </div>
         </div>
       </div>
     </section>
