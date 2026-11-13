@@ -62,6 +62,22 @@ html {
   .scroll-smooth { scroll-behavior: auto; }
 }
 
+/* Progress for the cinematic homepage carousel: smoothly fills between slides. */
+@keyframes hero-slide-fill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.hero-slide-progress {
+  transform-origin: left center;
+  animation: hero-slide-fill 8s linear both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-slide-progress {
+    animation: none;
+    transform: scaleX(1);
+  }
+}
+
 /* Custom delicate gold scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
