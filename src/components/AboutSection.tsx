@@ -4,191 +4,155 @@
  */
 
 import React from 'react';
+import { ArrowUpRight, Award, Building2, CheckCircle2 } from 'lucide-react';
+import { motion, useReducedMotion } from 'motion/react';
 import { CLINIC_INFO } from '../data/surgeryData';
-import { DoctorPortraitPlaceholder } from './DoctorPortraitPlaceholder';
-import { ArrowRight, Building2, Award } from 'lucide-react';
-import { motion } from 'motion/react';
 import { HomepageData } from '../lib/firestoreService';
+import { DoctorPortraitPlaceholder } from './DoctorPortraitPlaceholder';
 
 interface AboutSectionProps {
   onOpenBooking: () => void;
   data?: HomepageData['aboutPreview'];
 }
 
+const QUALIFICATIONS = ['MBBS', 'MS (General Surgery)', 'DrNB (Plastic Surgery)'];
+const FELLOWSHIP_HIGHLIGHTS = CLINIC_INFO.fellowships.slice(0, 2);
+
 export const AboutSection: React.FC<AboutSectionProps> = ({ onOpenBooking, data }) => {
+  const prefersReducedMotion = useReducedMotion();
+  const portrait = data?.portraitImage && data.portraitImage !== '/samik-portrait.jpg'
+    ? data.portraitImage
+    : null;
+
+  const reveal = (delay = 0) => ({
+    initial: prefersReducedMotion ? false : { opacity: 0, y: 22 },
+    whileInView: { opacity: 1, y: 0 },
+    viewport: { once: true, margin: '-70px' },
+    transition: {
+      duration: prefersReducedMotion ? 0 : 0.7,
+      delay: prefersReducedMotion ? 0 : delay,
+      ease: [0.16, 1, 0.3, 1] as const,
+    },
+  });
+
   return (
-    <section id="about" className="py-24 sm:py-32 bg-[#0B0B0B] relative overflow-hidden">
-      {/* Background Accent */}
-      <div className="absolute inset-0 luxury-noise opacity-30 pointer-events-none" />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        
-        {/* Section Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-60px' }}
-          transition={{ duration: 0.7 }}
-          className="text-center max-w-3xl mx-auto mb-16 sm:mb-20"
-        >
-          <div className="inline-flex items-center gap-2 mb-3">
-            <span className="w-8 h-[1px] bg-[#C9A47F]" />
-            <span className="text-[11px] font-sans tracking-[0.28em] text-[#C9A47F] uppercase font-semibold">
-              SURGICAL MASTERY &amp; ARTISTRY
-            </span>
-            <span className="w-8 h-[1px] bg-[#C9A47F]" />
-          </div>
-          <h2 className="text-4xl sm:text-5xl md:text-[3.4rem] font-serif font-normal text-[#F6F0E9] tracking-[-0.04em] leading-[1.13]">
-            The Surgeon &amp; Credentials
-          </h2>
-          <div className="w-12 h-[1px] bg-[#C9A47F]/40 mx-auto mt-5" />
+    <section id="about" aria-labelledby="about-heading" className="relative overflow-hidden bg-[#0B0B0B] py-20 text-[#F6F0E9] sm:py-28 lg:py-32">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_19%_43%,rgba(201,164,127,0.065),transparent_48%)]" />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 luxury-noise opacity-20" />
+
+      <div className="relative mx-auto max-w-[1380px] px-5 sm:px-8 lg:px-12 xl:px-16">
+        <motion.div {...reveal()} className="mb-11 flex items-center gap-4 sm:mb-14">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#D5AE89]">
+            THE PERSON BEHIND THE PRACTICE
+          </span>
+          <span aria-hidden="true" className="h-px min-w-8 flex-1 bg-gradient-to-r from-[#C9A47F]/50 to-transparent" />
+          <span className="font-serif italic text-lg text-[#9D8A77]">01</span>
         </motion.div>
 
-        {/* 3-Column Editorial Strip matching reference */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
-          
-          {/* Column 1: Approved Doctor Portrait Placeholder (Left - 4 cols) */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-60px' }}
-            transition={{ duration: 0.8 }}
-            className="lg:col-span-4 flex flex-col justify-between"
-          >
-            {/* Dedicated Luxury Container for Doctor Samik Sharma's Photo */}
-            {data?.portraitImage && data.portraitImage !== '/samik-portrait.jpg' ? (
-              <div className="relative aspect-[3/4] w-full overflow-hidden border border-[#C9A47F]/30 bg-[#1A1716] shadow-2xl group">
-                <img
-                  src={data.portraitImage}
-                  alt={data?.doctorName || 'Dr. Samik Sharma'}
-                  className="w-full h-full object-cover object-top filter grayscale contrast-[108%]"
-                  onError={(e) => {
-                    // Fallback to placeholder if custom image fails
-                    (e.target as any).style.display = 'none';
-                  }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0B0B0B] via-transparent to-transparent opacity-80" />
-                <div className="absolute bottom-4 left-4 right-4 p-3 bg-[#0B0B0B]/90 border-t border-[#C9A47F]/40 text-center">
-                  <p className="text-xs font-serif text-[#F6F0E9]">{data.doctorName || 'Dr. Samik Sharma'}</p>
-                  <p className="text-[10px] text-[#C9A47F] uppercase tracking-wider">Plastic &amp; Aesthetic Surgeon</p>
-                </div>
+        <div className="grid grid-cols-1 items-center gap-12 sm:gap-14 lg:grid-cols-12 lg:gap-12 xl:gap-20">
+          {/* The doctor, not a decorative sculpture, is the focal point. */}
+          <motion.div {...reveal(0.1)} className="relative min-w-0 lg:col-span-5">
+            <div className="relative max-w-[570px] mx-auto lg:mx-0">
+              <div aria-hidden="true" className="absolute -left-3 -top-3 bottom-8 right-4 border border-[#C9A47F]/25 sm:-left-5 sm:-top-5" />
+              <div className="relative aspect-[4/5] w-full overflow-hidden border border-[#C9A47F]/35 bg-[#1B1715]">
+                {portrait ? (
+                  <img
+                    src={portrait}
+                    alt={data?.doctorName || CLINIC_INFO.doctor}
+                    loading="lazy"
+                    className="h-full w-full object-cover object-top"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <DoctorPortraitPlaceholder className="!aspect-auto h-full" />
+                )}
               </div>
-            ) : (
-              <DoctorPortraitPlaceholder />
-            )}
 
-            <p className="text-[11px] text-[#AFA89F] mt-3 font-light text-center lg:text-left italic">
-              Dr. Samik Sharma operates exclusively with tertiary clinical protocols at Shalby Hospital, Mohali.
-            </p>
-          </motion.div>
-
-          {/* Column 2: Doctor Introduction & Credentials (Middle - 5 cols) */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-60px' }}
-            transition={{ duration: 0.8, delay: 0.15 }}
-            className="lg:col-span-5 bg-[#1F1B19] border border-[#C9A47F]/25 p-7 sm:p-9 flex flex-col justify-between shadow-xl relative"
-          >
-            {/* Top gold line */}
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#C9A47F]/40 via-[#C9A47F] to-[#C9A47F]/40" />
-
-            <div>
-              <div className="inline-block text-[11px] font-sans tracking-[0.24em] text-[#C9A47F] uppercase font-semibold mb-2">
-                SENIOR CONSULTANT
-              </div>
-              <h3 className="text-2xl sm:text-3xl font-serif text-[#F6F0E9] font-normal mb-1">
-                {data?.doctorName || CLINIC_INFO.doctor}
-              </h3>
-              <p className="text-xs font-sans tracking-wide text-[#C9A47F] uppercase font-medium mb-6">
-                {data?.qualificationTitle || CLINIC_INFO.role}
-              </p>
-
-              {/* Degrees & Qualifications Box */}
-              <div className="py-5 border-y border-[#C9A47F]/20 mb-6 space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#C9A47F] mt-1.5 shrink-0" />
-                  <p className="text-sm font-sans font-medium text-[#F6F0E9] tracking-wide">
-                    {data?.degreesList && data.degreesList.length > 0
-                      ? data.degreesList.join(' · ')
-                      : CLINIC_INFO.degrees}
-                  </p>
-                </div>
-
-                {(data?.fellowshipsList && data.fellowshipsList.length > 0
-                  ? data.fellowshipsList
-                  : CLINIC_INFO.fellowships
-                ).map((f, i) => (
-                  <div key={i} className="flex items-start gap-3">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#C9A47F] mt-1.5 shrink-0" />
-                    <p className="text-xs sm:text-[13px] font-sans text-[#AFA89F] leading-snug">
-                      {f}
-                    </p>
-                  </div>
-                ))}
-
-                <div className="flex items-start gap-3 pt-2">
-                  <Building2 className="w-4 h-4 text-[#C9A47F] shrink-0 mt-0.5" />
-                  <p className="text-xs sm:text-[13px] font-sans font-medium text-[#F6F0E9]">
+              <div className="relative mt-5 flex items-start justify-between gap-4 border-l-2 border-[#C9A47F] pl-4">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#C9A47F]">Consultant Profile</p>
+                  <p className="mt-1 text-sm text-[#C7BDB2]">
                     {data?.hospitalName || CLINIC_INFO.hospital}
                   </p>
                 </div>
+                <span className="hidden shrink-0 font-serif italic text-2xl text-[#8F775F] sm:block">Care &amp; Craft</span>
               </div>
+            </div>
+          </motion.div>
 
-              {/* Editorial Bio Paragraph */}
-              <p className="text-sm text-[#AFA89F] font-light leading-relaxed mb-6 font-sans">
-                {data?.previewSummary ||
-                  'Trained extensively across premier medical centers in the United Kingdom with specialized fellowships in facial aesthetics and advanced cosmetic surgery, Dr. Samik Sharma approaches aesthetic transformation as an architectural discipline. He prioritizes structural preservation and undetectable rejuvenation.'}
+          {/* Editorial biography with concise, properly separated credentials. */}
+          <motion.div {...reveal(0.2)} className="min-w-0 lg:col-span-7 lg:py-5">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <span className="h-px w-9 bg-[#C9A47F]" aria-hidden="true" />
+              <p className="text-[10px] font-semibold uppercase leading-relaxed tracking-[0.19em] text-[#D7B18E]">
+                SENIOR CONSULTANT · PLASTIC &amp; AESTHETIC SURGERY
               </p>
             </div>
 
-            <div className="pt-5 border-t border-white/5 flex items-center justify-between">
-              <button
-                onClick={onOpenBooking}
-                type="button"
-                className="inline-flex items-center gap-2 text-xs font-sans font-semibold tracking-[0.16em] uppercase text-[#C9A47F] hover:text-[#DFCAAF] group cursor-pointer"
-              >
-                <span>{data?.buttonLabel || 'Schedule Private Consultation'}</span>
-                <ArrowRight className="w-3.5 h-3.5 transform group-hover:translate-x-1.5 transition-transform" />
-              </button>
-            </div>
-          </motion.div>
+            <h2 id="about-heading" className="mt-5 max-w-[710px] font-serif text-[clamp(2.9rem,8.5vw,4.8rem)] font-normal leading-[1.04] tracking-[-0.045em] text-[#FBF7F2]">
+              {data?.doctorName || CLINIC_INFO.doctor}
+            </h2>
 
-          {/* Column 3: Sculptural Architectural Imagery (Right - 3 cols) */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-60px' }}
-            transition={{ duration: 0.8, delay: 0.3 }}
-            className="lg:col-span-3 flex flex-col justify-between"
-          >
-            <div className="relative aspect-[3/4] w-full overflow-hidden border border-[#C9A47F]/30 bg-[#24201E] group shadow-2xl">
-              <img
-                src={data?.architecturalImage || '/src/assets/images/about_sculptural_marble_1794213536764.jpg'}
-                alt="Classical sculptural marble torso and architectural gold arc"
-                className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-700"
-                loading="lazy"
-                referrerPolicy="no-referrer"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0B0B0B] via-transparent to-transparent opacity-80" />
-              
-              {/* Philosophical Quote Card */}
-              <div className="absolute bottom-4 left-4 right-4 p-4 bg-[#0B0B0B]/90 backdrop-blur-sm border-t border-[#C9A47F]/40">
-                <p className="font-serif italic text-sm text-[#F6F0E9] leading-snug">
-                  &ldquo;Aesthetic surgery is the harmonious union of human anatomy and classical sculpture.&rdquo;
+            <p className="mt-3 text-[13px] font-medium tracking-[0.025em] text-[#D6B18D] sm:text-[15px]">
+              {data?.qualificationTitle || CLINIC_INFO.role}
+            </p>
+
+            <p className="mt-7 max-w-[650px] text-[14px] leading-[1.9] text-[#BFB6AC] sm:text-base">
+              {data?.previewSummary ||
+                'Dr. Samik Sharma provides individualized plastic and aesthetic surgical care, with an emphasis on clinical judgment, proportion, and informed patient decisions.'}
+            </p>
+
+            <div className="mt-9 flex items-start gap-3 border-y border-[#C9A47F]/20 py-5">
+              <Building2 aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-[#C9A47F]" />
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#9F907F]">Clinical Practice</p>
+                <p className="mt-1.5 text-[14px] font-medium text-[#F6F0E9] sm:text-base">
+                  {data?.hospitalName || CLINIC_INFO.hospital}
                 </p>
-                <p className="text-[10px] font-sans tracking-[0.2em] text-[#C9A47F] uppercase mt-2">
-                  TIMELESS SYMMETRY
-                </p>
+                <p className="mt-1 text-xs text-[#9F948A]">Mohali, Punjab</p>
               </div>
             </div>
 
-            <div className="mt-3 p-3.5 border border-[#C9A47F]/20 bg-[#12100F] text-[11px] text-[#AFA89F] font-light">
-              <span className="text-[#C9A47F] font-medium">Core Principle:</span> Structural integrity is never compromised for temporary novelty.
+            <div className="mt-8">
+              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.19em] text-[#C9A47F]">
+                Qualifications
+              </p>
+              <div className="grid grid-cols-1 gap-2 min-[430px]:grid-cols-3 sm:gap-3">
+                {QUALIFICATIONS.map((degree) => (
+                  <div key={degree} className="flex min-h-16 items-center gap-2.5 border border-[#C9A47F]/25 bg-[#1C1917]/70 px-4 py-3">
+                    <CheckCircle2 aria-hidden="true" className="size-4 shrink-0 text-[#C9A47F]" />
+                    <span className="text-[12px] font-medium leading-snug text-[#F4EAE0]">{degree}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-8">
+              <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.19em] text-[#C9A47F]">
+                Fellowships &amp; Advanced Training
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2 sm:gap-5">
+                {FELLOWSHIP_HIGHLIGHTS.map((fellowship) => (
+                  <div key={fellowship} className="flex items-start gap-3">
+                    <Award aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-[#C9A47F]" />
+                    <p className="text-[13px] leading-[1.6] text-[#BFB6AC]">{fellowship}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-9 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+              <button
+                onClick={onOpenBooking}
+                type="button"
+                className="group inline-flex min-h-12 w-full items-center justify-center gap-4 bg-[#C9A47F] px-6 py-3.5 text-center text-[11px] font-bold uppercase tracking-[0.1em] text-[#15110E] transition-colors hover:bg-[#E2C5A8] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#C9A47F] sm:w-auto"
+              >
+                {data?.buttonLabel || 'Schedule Private Consultation'}
+                <ArrowUpRight aria-hidden="true" className="size-4 shrink-0 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              </button>
             </div>
           </motion.div>
-
         </div>
-
       </div>
     </section>
   );
