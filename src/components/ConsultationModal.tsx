@@ -3,10 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useState } from 'react';
-import { ArrowRight, Check, CheckCircle2, Copy, ShieldCheck, X } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ArrowRight, CalendarDays, Check, CheckCircle2, Copy, ShieldCheck, X } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { createEnquiry } from '../lib/firestoreService';
+import { formatIndianDate, formatIndianDateInput, parseIndianDate } from '../lib/appointmentDate';
 
 interface ConsultationModalProps {
   isOpen: boolean;
@@ -35,7 +36,9 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [concern, setConcern] = useState(initialTreatment || '');
-  const [preferredDate, setPreferredDate] = useState('');
+  const [preferredDateText, setPreferredDateText] = useState('');
+  const datePickerRef = useRef<HTMLInputElement>(null);
+  const preferredDate = parseIndianDate(preferredDateText) || '';
   const [additionalMessage, setAdditionalMessage] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -54,7 +57,7 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
     setFullName('');
     setPhone('');
     setConcern(initialTreatment || '');
-    setPreferredDate('');
+    setPreferredDateText('');
     setAdditionalMessage('');
     setErrors({});
     setSubmitError(null);
@@ -81,7 +84,7 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
     setFullName('');
     setPhone('');
     setConcern(initialTreatment || '');
-    setPreferredDate('');
+    setPreferredDateText('');
     setAdditionalMessage('');
     setErrors({});
     setSubmitError(null);
@@ -97,7 +100,9 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
       next.phone = 'Please enter a valid phone number.';
     }
     if (!concern.trim()) next.concern = 'Please enter the treatment or reason for your visit.';
-    if (preferredDate && preferredDate < tomorrowLocalDate()) {
+    if (preferredDateText.trim() && !preferredDate) {
+      next.preferredDate = 'Enter a valid date as DD/MM/YYYY, e.g. 25/11/2026.';
+    } else if (preferredDate && preferredDate < tomorrowLocalDate()) {
       next.preferredDate = 'Please choose a future date.';
     }
     setErrors(next);
@@ -208,7 +213,7 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
                   </button>
                 </div>
                 <p className="mt-3 text-xs text-[#BDB2A5]">{concern}</p>
-                {preferredDate && <p className="mt-1 text-xs text-[#BDB2A5]">Preferred date: {preferredDate}</p>}
+                {preferredDate && <p className="mt-1 text-xs text-[#BDB2A5]">Preferred date: {formatIndianDate(preferredDate)}</p>}
               </div>
               <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                 <button
@@ -285,16 +290,54 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
 
               <div>
                 <label htmlFor="consult-date" className={labelClass}>Preferred Date <span className="font-normal text-[#9C8B7D]">(optional)</span></label>
-                <input
-                  id="consult-date"
-                  type="date"
-                  min={tomorrowLocalDate()}
-                  value={preferredDate}
-                  onChange={(e) => { setPreferredDate(e.target.value); setErrors((prev) => ({ ...prev, preferredDate: '' })); }}
-                  aria-invalid={Boolean(errors.preferredDate)}
-                  aria-describedby={errors.preferredDate ? 'consult-date-error' : undefined}
-                  className={fieldClass + ' ' + (errors.preferredDate ? 'border-rose-500' : 'border-[#C9A47F]/25')}
-                />
+                <div className="relative">
+                  <input
+                    id="consult-date"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    placeholder="DD/MM/YYYY"
+                    maxLength={10}
+                    value={preferredDateText}
+                    onChange={(event) => {
+                      setPreferredDateText(formatIndianDateInput(event.target.value));
+                      setErrors((prev) => ({ ...prev, preferredDate: '' }));
+                    }}
+                    aria-invalid={Boolean(errors.preferredDate)}
+                    aria-describedby={errors.preferredDate ? 'consult-date-error' : 'consult-date-hint'}
+                    className={fieldClass + ' pr-14 ' + (errors.preferredDate ? 'border-rose-500' : 'border-[#C9A47F]/25')}
+                  />
+                  <button
+                    type="button"
+                    aria-label="Choose a preferred date from the calendar"
+                    onClick={() => {
+                      try {
+                        datePickerRef.current?.showPicker();
+                      } catch {
+                        datePickerRef.current?.focus();
+                      }
+                    }}
+                    className="absolute right-2 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-md text-[#C9A47F] hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-[#C9A47F]"
+                  >
+                    <CalendarDays aria-hidden="true" className="size-5" />
+                  </button>
+                  <input
+                    ref={datePickerRef}
+                    type="date"
+                    min={tomorrowLocalDate()}
+                    value={preferredDate}
+                    onChange={(event) => {
+                      setPreferredDateText(formatIndianDate(event.target.value));
+                      setErrors((prev) => ({ ...prev, preferredDate: '' }));
+                    }}
+                    aria-label="Calendar date selection"
+                    tabIndex={-1}
+                    className="pointer-events-none absolute right-3 top-1/2 size-8 -translate-y-1/2 opacity-0"
+                  />
+                </div>
+                <p id="consult-date-hint" className="mt-1.5 text-[11px] text-[#9F9285]">
+                  Day / Month / Year — or tap the calendar icon.
+                </p>
                 {errors.preferredDate && <p id="consult-date-error" className="mt-1.5 text-xs text-rose-300">{errors.preferredDate}</p>}
               </div>
 
