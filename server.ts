@@ -12,6 +12,7 @@ import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import firebaseConfig from './firebase-applet-config.json';
+import { validateEnquiry } from './src/server/enquiryValidation';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -97,57 +98,23 @@ async function startServer() {
       return;
     }
 
-    const {
-      fullName,
-      phone,
-      email,
-      treatmentInterest,
-      procedure,
-      consultationType,
-      preferredDate,
-      preferredTime,
-    } = req.body;
-
-    // Strict Server-Side Validations
-    if (!fullName || typeof fullName !== 'string' || fullName.trim().length < 2 || fullName.trim().length > 100) {
-      res.status(400).json({ error: 'Please provide a valid full patient name (2-100 characters).' });
+    // Shared allow-list validation supports phone-first appointment requests.
+    // An email and a preferred date are no longer required.
+    let enquiry;
+    try {
+      enquiry = validateEnquiry(req.body);
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : 'Invalid consultation request.' });
       return;
     }
-
-    if (!phone || typeof phone !== 'string' || phone.trim().length < 7 || phone.trim().length > 30) {
-      res.status(400).json({ error: 'Please provide a valid contact phone number with country/area code.' });
-      return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email || typeof email !== 'string' || !emailRegex.test(email.trim()) || email.trim().length > 100) {
-      res.status(400).json({ error: 'Please provide a valid email address for clinical correspondence.' });
-      return;
-    }
-
-    const selectedProcedure = treatmentInterest || procedure || 'Comprehensive Assessment';
-    if (typeof selectedProcedure !== 'string' || selectedProcedure.length > 100) {
-      res.status(400).json({ error: 'Invalid procedure selection.' });
-      return;
-    }
-
-    const chosenType = consultationType === 'virtual' ? 'virtual' : 'in-person';
-    const chosenDate = typeof preferredDate === 'string' ? preferredDate.trim() : '';
-    const chosenTime = typeof preferredTime === 'string' ? preferredTime.trim() : '11:00 AM';
 
     const referenceCode = `SS-${randomUUID().slice(0, 12).toUpperCase()}`;
     const now = new Date().toISOString();
 
     const enquiryDoc = {
+      ...enquiry,
+      procedure: enquiry.treatmentInterest,
       referenceCode,
-      fullName: fullName.trim(),
-      phone: phone.trim(),
-      email: email.trim().toLowerCase(),
-      procedure: selectedProcedure,
-      treatmentInterest: selectedProcedure,
-      consultationType: chosenType,
-      preferredDate: chosenDate,
-      preferredTime: chosenTime,
       status: 'new',
       createdAt: now,
       updatedAt: now,

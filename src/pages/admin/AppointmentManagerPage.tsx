@@ -168,13 +168,13 @@ export const AppointmentManagerPage: React.FC = () => {
       setNotification({ type: 'error', message: 'No matching enquiries to export.' });
       return;
     }
-    const headers = ['Reference Code','Full Name','Phone','Email','Treatment','Consultation Type','Preferred Date','Preferred Time','Status','Follow-up Date','Priority','Created At','Clinical Notes','Admin Notes'];
+    const headers = ['Reference Code','Full Name','Phone','Email','Treatment','Consultation Type','Preferred Date','Preferred Time','Status','Follow-up Date','Priority','Created At','Clinical Notes','Appointment Message','Admin Notes'];
     const cell = (value: unknown) => {
       const raw = String(value ?? '');
       const safe = /^\s*[=+\-@]/.test(raw) ? "'" + raw : raw;
       return '"' + safe.replace(/"/g, '""') + '"';
     };
-    const rows = filteredEnquiries.map(e => [e.referenceCode,e.fullName,e.phone,e.email,e.treatmentInterest,e.consultationType,e.preferredDate,e.preferredTime,e.status,e.followUpDate || '',e.priority || 'normal',e.createdAt,e.clinicalNotes || '',e.adminNotes || '']);
+    const rows = filteredEnquiries.map(e => [e.referenceCode,e.fullName,e.phone,e.email,e.treatmentInterest,e.consultationType,e.preferredDate,e.preferredTime,e.status,e.followUpDate || '',e.priority || 'normal',e.createdAt,e.clinicalNotes || '',e.additionalMessage || '',e.adminNotes || '']);
     const csv = '\uFEFF' + [headers,...rows].map(row => row.map(cell).join(',')).join('\r\n');
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
@@ -199,7 +199,7 @@ export const AppointmentManagerPage: React.FC = () => {
         searchQuery === '' ||
         e.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         e.phone.includes(searchQuery) ||
-        e.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (e.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         e.referenceCode.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchStatus = statusFilter === 'all' || e.status === statusFilter;
@@ -420,18 +420,20 @@ export const AppointmentManagerPage: React.FC = () => {
                           <Phone className="w-3 h-3 text-[#7C766F]" />
                           {enq.phone}
                         </span>
-                        <span className="flex items-center gap-1">
-                          <Mail className="w-3 h-3 text-[#7C766F]" />
-                          {enq.email}
-                        </span>
+                        {enq.email && (
+                          <span className="flex items-center gap-1">
+                            <Mail className="w-3 h-3 text-[#7C766F]" />
+                            {enq.email}
+                          </span>
+                        )}
                       </div>
                     </td>
 
                     <td className="py-3.5 px-4">
                       <span className="text-[#F6F0E9] font-medium">{enq.treatmentInterest}</span>
-                      {enq.clinicalNotes && (
-                        <p className="text-[10px] text-[#7C766F] truncate max-w-xs mt-0.5">
-                          Note: {enq.clinicalNotes}
+                      {(enq.additionalMessage || enq.clinicalNotes) && (
+                        <p className="text-[10px] text-[#9D9287] truncate max-w-xs mt-1">
+                          Note: {enq.additionalMessage || enq.clinicalNotes}
                         </p>
                       )}
                     </td>
@@ -494,13 +496,15 @@ export const AppointmentManagerPage: React.FC = () => {
                         >
                           <Phone className="w-3.5 h-3.5" />
                         </a>
-                        <a
-                          href={`mailto:${enq.email}?subject=Dr.%20Samik%20Sharma%20Consultation%20Appointment%20-%20Ref%20${enq.referenceCode}`}
-                          className="p-1.5 text-[#AFA89F] hover:text-[#C9A47F] transition-colors"
-                          title="Email Patient"
-                        >
-                          <Mail className="w-3.5 h-3.5" />
-                        </a>
+                        {enq.email && (
+                          <a
+                            href={`mailto:${enq.email}?subject=Dr.%20Samik%20Sharma%20Consultation%20Appointment%20-%20Ref%20${enq.referenceCode}`}
+                            className="p-1.5 text-[#AFA89F] hover:text-[#C9A47F] transition-colors"
+                            title="Email Patient"
+                          >
+                            <Mail className="w-3.5 h-3.5" />
+                          </a>
+                        )}
                         {enq.id && (
                           <button
                             onClick={() => handleDelete(enq.id!, enq.fullName)}
@@ -555,7 +559,7 @@ export const AppointmentManagerPage: React.FC = () => {
               </div>
               <div>
                 <span className="text-[10px] text-[#7C766F] uppercase font-mono">Email Address:</span>
-                <p className="font-mono text-[#F6F0E9] break-all font-medium">{activeEnquiry.email}</p>
+                <p className="font-mono text-[#F6F0E9] break-all font-medium">{activeEnquiry.email || 'Not provided'}</p>
               </div>
               <div>
                 <span className="text-[10px] text-[#7C766F] uppercase font-mono">Target Procedure:</span>
@@ -564,11 +568,22 @@ export const AppointmentManagerPage: React.FC = () => {
               <div>
                 <span className="text-[10px] text-[#7C766F] uppercase font-mono">Slot &amp; Format:</span>
                 <p className="text-[#F6F0E9]">
-                  {activeEnquiry.preferredDate} ({activeEnquiry.preferredTime})
+                  {activeEnquiry.preferredDate || 'Date not specified'} · {activeEnquiry.preferredTime || 'To be arranged'}
                 </p>
                 <p className="text-[10px] text-[#AFA89F] capitalize">{activeEnquiry.consultationType}</p>
               </div>
             </div>
+
+            {activeEnquiry.additionalMessage && (
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-[#C9A47F]">
+                  Patient Appointment Message
+                </label>
+                <div className="whitespace-pre-wrap break-words border border-[#C9A47F]/20 bg-[#12100F] p-3 text-xs leading-relaxed text-[#D9CAB9]">
+                  {activeEnquiry.additionalMessage}
+                </div>
+              </div>
+            )}
 
             {/* Patient Clinical Notes */}
             {activeEnquiry.clinicalNotes && (
@@ -638,13 +653,15 @@ export const AppointmentManagerPage: React.FC = () => {
                   <Phone className="w-3.5 h-3.5" />
                   <span>Call Patient</span>
                 </a>
-                <a
-                  href={`mailto:${activeEnquiry.email}?subject=Dr.%20Samik%20Sharma%20Consultation%20Appointment`}
-                  className="px-3 py-1.5 bg-[#24211E] border border-white/10 text-[#F6F0E9] hover:text-[#C9A47F] flex items-center gap-1.5"
-                >
-                  <Mail className="w-3.5 h-3.5" />
-                  <span>Send Email</span>
-                </a>
+                {activeEnquiry.email && (
+                  <a
+                    href={`mailto:${activeEnquiry.email}?subject=Dr.%20Samik%20Sharma%20Consultation%20Appointment`}
+                    className="px-3 py-1.5 bg-[#24211E] border border-white/10 text-[#F6F0E9] hover:text-[#C9A47F] flex items-center gap-1.5"
+                  >
+                    <Mail className="w-3.5 h-3.5" />
+                    <span>Email Patient</span>
+                  </a>
+                )}
               </div>
 
               <button

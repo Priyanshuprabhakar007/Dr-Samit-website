@@ -3,11 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
-import { X, Calendar, Clock, MapPin, Video, CheckCircle2, ShieldCheck, Copy, Check } from 'lucide-react';
-import { TREATMENTS_DATA, CLINIC_INFO } from '../data/surgeryData';
-
-import { motion } from 'motion/react';
+import React, { useEffect, useState } from 'react';
+import { ArrowRight, Check, CheckCircle2, Copy, ShieldCheck, X } from 'lucide-react';
+import { motion, useReducedMotion } from 'motion/react';
+import { createEnquiry } from '../lib/firestoreService';
 
 interface ConsultationModalProps {
   isOpen: boolean;
@@ -15,453 +14,324 @@ interface ConsultationModalProps {
   initialTreatment?: string;
 }
 
+function tomorrowLocalDate(): string {
+  const date = new Date();
+  date.setDate(date.getDate() + 1);
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+const fieldClass =
+  'w-full min-h-13 rounded-lg border bg-[#171412] px-4 py-3.5 text-[16px] leading-normal text-[#F6F0E9] placeholder:text-[#80746A] transition-colors focus:outline-none focus:ring-2 focus:ring-[#C9A47F]/30';
+
+const labelClass = 'mb-2 block text-[12px] font-semibold tracking-wide text-[#EADFD3]';
+
 export const ConsultationModal: React.FC<ConsultationModalProps> = ({
   isOpen,
   onClose,
   initialTreatment,
 }) => {
-  const [selectedTreatment, setSelectedTreatment] = useState(
-    initialTreatment || 'Rhinoplasty'
-  );
-  const [consultType, setConsultType] = useState<'in-person' | 'virtual'>('in-person');
-  const [preferredDate, setPreferredDate] = useState('');
-  const [preferredTime, setPreferredTime] = useState('11:00 AM');
+  const reduceMotion = useReducedMotion();
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  
+  const [concern, setConcern] = useState(initialTreatment || '');
+  const [preferredDate, setPreferredDate] = useState('');
+  const [additionalMessage, setAdditionalMessage] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [bookingRef, setBookingRef] = useState('');
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    if (initialTreatment) {
-      setSelectedTreatment(initialTreatment);
-    }
-  }, [initialTreatment]);
+    if (initialTreatment && isOpen && !submitted) setConcern(initialTreatment);
+  }, [initialTreatment, isOpen, submitted]);
 
-  // Keep the consultation sheet usable on phones without scrolling the page behind it.
+  // Never show a previous patient's success screen or details on reopening.
+  useEffect(() => {
+    if (isOpen) return;
+    setFullName('');
+    setPhone('');
+    setConcern(initialTreatment || '');
+    setPreferredDate('');
+    setAdditionalMessage('');
+    setErrors({});
+    setSubmitError(null);
+    setSubmitted(false);
+    setBookingRef('');
+    setCopied(false);
+  }, [isOpen, initialTreatment]);
+
   useEffect(() => {
     if (!isOpen) return;
-    const originalOverflow = document.body.style.overflow;
+    const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const onEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape' && !isSubmitting) onClose();
     };
     document.addEventListener('keydown', onEscape);
     return () => {
-      document.body.style.overflow = originalOverflow;
+      document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', onEscape);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, isSubmitting, onClose]);
 
-  // Set default minimum date to tomorrow
-  const getTomorrowDateString = () => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().split('T')[0];
+  const resetForm = () => {
+    setFullName('');
+    setPhone('');
+    setConcern(initialTreatment || '');
+    setPreferredDate('');
+    setAdditionalMessage('');
+    setErrors({});
+    setSubmitError(null);
+    setSubmitted(false);
+    setBookingRef('');
+    setCopied(false);
   };
-
-  if (!isOpen) return null;
 
   const validate = () => {
-    const newErrors: Record<string, string> = {};
-    if (!fullName.trim()) newErrors.fullName = 'Please enter your full name.';
-    if (!phone.trim()) {
-      newErrors.phone = 'Please provide a valid contact number.';
-    } else if (phone.trim().length < 8) {
-      newErrors.phone = 'Please provide a complete contact number with country/area code.';
+    const next: Record<string, string> = {};
+    if (fullName.trim().length < 2) next.fullName = 'Please enter your full name.';
+    if (!/^[+\d()\s.\-]{7,30}$/.test(phone.trim()) || phone.replace(/\D/g, '').length < 7) {
+      next.phone = 'Please enter a valid phone number.';
     }
-    if (!email.trim()) {
-      newErrors.email = 'Please provide an email address for clinical confirmation.';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      newErrors.email = 'Please enter a valid email address.';
+    if (!concern.trim()) next.concern = 'Please enter the treatment or reason for your visit.';
+    if (preferredDate && preferredDate < tomorrowLocalDate()) {
+      next.preferredDate = 'Please choose a future date.';
     }
-    if (!preferredDate) {
-      newErrors.preferredDate = 'Please select a preferred date for evaluation.';
-    }
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    setErrors(next);
+    return Object.keys(next).length === 0;
   };
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
-
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (isSubmitting || !validate()) return;
     setSubmitError(null);
     setIsSubmitting(true);
     try {
-      const { createEnquiry } = await import('../lib/firestoreService');
       const result = await createEnquiry({
-        fullName,
-        email,
-        phone,
-        treatmentInterest: selectedTreatment,
-        consultationType: consultType,
+        fullName: fullName.trim(),
+        phone: phone.trim(),
+        email: '',
+        treatmentInterest: concern.trim(),
+        consultationType: 'in-person',
         preferredDate,
-        preferredTime,
+        preferredTime: '',
+        additionalMessage: additionalMessage.trim(),
       });
-
       setBookingRef(result.referenceCode);
       setSubmitted(true);
-    } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Unable to submit. Please try again.');
-      setSubmitted(false);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Unable to submit your request. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleCopyRef = () => {
-    if (bookingRef) {
-      navigator.clipboard.writeText(bookingRef);
+  const handleCopyRef = async () => {
+    if (!bookingRef) return;
+    try {
+      await navigator.clipboard.writeText(bookingRef);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      setCopied(false);
     }
   };
 
-  const resetForm = () => {
-    setSubmitted(false);
-    setFullName('');
-    setPhone('');
-    setEmail('');
-    setSubmitError(null);
-    setPreferredDate('');
-    setErrors({});
-  };
+  if (!isOpen) return null;
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
+      initial={reduceMotion ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-stretch sm:items-center justify-center p-0 sm:p-6 bg-black/85 backdrop-blur-md overflow-hidden"
-      onClick={onClose}
+      exit={reduceMotion ? undefined : { opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-stretch justify-center overflow-hidden bg-black/85 backdrop-blur-sm sm:items-center sm:p-5"
       role="dialog"
       aria-modal="true"
       aria-labelledby="consultation-modal-title"
+      onClick={() => { if (!isSubmitting) onClose(); }}
     >
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 15 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 15 }}
-        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] as const }}
-        className="relative w-full max-w-2xl h-[100dvh] sm:h-auto sm:max-h-[calc(100dvh-3rem)] flex flex-col min-w-0 bg-[#1C1817] border border-[#C9A47F]/40 shadow-2xl sm:my-4 overflow-hidden text-[#F6F0E9]"
-        onClick={(e) => e.stopPropagation()}
+        initial={reduceMotion ? false : { opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={reduceMotion ? undefined : { opacity: 0, y: 18 }}
+        transition={{ duration: reduceMotion ? 0 : 0.24 }}
+        className="relative flex h-[100dvh] w-full min-w-0 max-w-[580px] flex-col overflow-hidden border border-[#C9A47F]/30 bg-[#201C19] text-[#F6F0E9] shadow-[0_30px_90px_rgba(0,0,0,0.65)] sm:h-auto sm:max-h-[calc(100dvh-2.5rem)] sm:rounded-2xl"
+        onClick={(event) => event.stopPropagation()}
       >
-        {/* Modal Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 w-11 h-11 bg-[#0B0B0B]/80 hover:bg-[#C9A47F] text-[#F6F0E9] hover:text-[#0B0B0B] border border-[#C9A47F]/40 flex items-center justify-center transition-colors cursor-pointer"
-          aria-label="Close dialog"
-        >
-          <X className="w-4 h-4" />
-        </button>
-
-        {/* Modal Header */}
-        <div className="p-5 pt-[max(1.25rem,env(safe-area-inset-top))] sm:p-8 bg-[#12100F] border-b border-[#C9A47F]/20 shrink-0 pr-16">
-          <div className="inline-flex items-center gap-2 mb-2">
-            <span className="w-4 h-[1px] bg-[#C9A47F]" />
-            <span className="text-[10px] font-sans tracking-[0.25em] text-[#C9A47F] uppercase font-semibold">
-              CONFIDENTIAL INTAKE
-            </span>
+        <header className="relative shrink-0 border-b border-[#C9A47F]/15 bg-[#161310] px-5 pb-5 pt-[max(1.3rem,env(safe-area-inset-top))] sm:px-9 sm:pb-6 sm:pt-7">
+          <div className="pr-12">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C9A47F]">
+              Dr. Samik Sharma · Mohali
+            </p>
+            <h2 id="consultation-modal-title" className="mt-2 font-serif text-[32px] font-normal leading-tight text-[#F9F2EB] sm:text-[38px]">
+              Request an Appointment
+            </h2>
+            <p className="mt-2 text-[12px] leading-relaxed text-[#B8AEA3] sm:text-[13px]">
+              Fill in a few details. Our team will contact you to arrange a suitable time.
+            </p>
           </div>
-          <h2 id="consultation-modal-title" className="text-2xl sm:text-3xl font-serif text-[#F6F0E9] font-light">
-            Book a Consultation
-          </h2>
-          <p className="text-xs text-[#AFA89F] font-sans mt-1">
-            Dr. Samik Sharma · Shalby Hospital, Mohali
-          </p>
-        </div>
+          <button
+            type="button"
+            aria-label="Close consultation form"
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="absolute right-4 top-4 flex size-11 items-center justify-center rounded-full border border-[#C9A47F]/25 text-[#F6F0E9] transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-[#C9A47F] disabled:opacity-50 sm:right-6 sm:top-6"
+          >
+            <X aria-hidden="true" className="size-5" />
+          </button>
+        </header>
 
-        {/* Modal Content */}
-        <div className="p-4 sm:p-8 min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-9 sm:py-7">
           {submitted ? (
-            /* Success / Confirmation State */
-            <div className="py-6 text-center space-y-6">
-              <div className="w-16 h-16 mx-auto rounded-full border border-[#C9A47F] bg-[#24201E] flex items-center justify-center text-[#C9A47F]">
-                <CheckCircle2 className="w-9 h-9" />
+            <div className="py-5 text-center">
+              <div className="mx-auto flex size-16 items-center justify-center rounded-full border border-[#C9A47F]/40 bg-[#C9A47F]/10">
+                <CheckCircle2 aria-hidden="true" className="size-8 text-[#D6B18D]" />
               </div>
+              <h3 className="mt-5 font-serif text-3xl text-[#F6F0E9]">Request Received</h3>
+              <p className="mx-auto mt-3 max-w-sm text-sm leading-[1.8] text-[#C4B8AD]">
+                Thank you, {fullName}. We received your request. Our coordinator will call <strong className="text-[#F6F0E9]">{phone}</strong> to discuss availability. An appointment is not yet confirmed.
+              </p>
 
-              <div>
-                <span className="text-[11px] font-sans tracking-[0.22em] text-[#C9A47F] uppercase font-semibold block mb-1">
-                  CONSULTATION REQUEST LOGGED
-                </span>
-                <h3 className="text-2xl font-serif text-[#F6F0E9]">
-                  Thank You, {fullName}
-                </h3>
-                <p className="text-xs text-[#AFA89F] font-light mt-2 max-w-md mx-auto leading-relaxed">
-                  Your consultation request was received for review. Your appointment is not yet confirmed.
-                </p>
-              </div>
-
-              {/* Reference ID Card */}
-              <div className="p-4 bg-[#12100F] border border-[#C9A47F]/30 max-w-md mx-auto text-left space-y-2.5">
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <span className="text-[#AFA89F] font-mono">Reference Code:</span>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-[#C9A47F] font-semibold tracking-wider break-all">
-                      {bookingRef}
-                    </span>
-                    <button
-                      onClick={handleCopyRef}
-                      className="p-1 hover:text-[#C9A47F] text-[#AFA89F] transition-colors"
-                      title="Copy reference code"
-                    >
-                      {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                    </button>
-                  </div>
+              <div className="mx-auto mt-6 max-w-sm rounded-lg border border-[#C9A47F]/25 bg-[#161310] p-4 text-left">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#C9A47F]">Your reference number</p>
+                <div className="mt-2 flex items-center justify-between gap-3">
+                  <span className="min-w-0 break-all font-mono text-sm font-semibold text-[#F6F0E9]">{bookingRef}</span>
+                  <button
+                    type="button"
+                    onClick={handleCopyRef}
+                    aria-label="Copy reference number"
+                    className="flex size-10 shrink-0 items-center justify-center rounded-md border border-[#C9A47F]/25 text-[#C9A47F] hover:bg-white/10"
+                  >
+                    {copied ? <Check aria-hidden="true" className="size-4" /> : <Copy aria-hidden="true" className="size-4" />}
+                  </button>
                 </div>
-
-                <div className="text-xs text-[#AFA89F] space-y-1 pt-2 border-t border-white/5">
-                  <p><span className="text-[#F6F0E9]">Procedure:</span> {selectedTreatment}</p>
-                  <p>
-                    <span className="text-[#F6F0E9]">Mode:</span>{' '}
-                    {consultType === 'in-person'
-                      ? 'In-Person at Shalby Hospital, Sector 71, Mohali'
-                      : 'Virtual Video Consultation'}
-                  </p>
-                  <p><span className="text-[#F6F0E9]">Preferred Slot:</span> {preferredDate} at {preferredTime}</p>
-                </div>
+                <p className="mt-3 text-xs text-[#BDB2A5]">{concern}</p>
+                {preferredDate && <p className="mt-1 text-xs text-[#BDB2A5]">Preferred date: {preferredDate}</p>}
               </div>
-
-              <div className="text-[11px] text-[#AFA89F] font-light max-w-md mx-auto">
-                Our surgical coordinator will contact you via <strong className="text-[#F6F0E9]">{phone}</strong> and <strong className="text-[#F6F0E9]">{email}</strong> to discuss your requested appointment.
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4 pt-2">
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                 <button
-                  onClick={resetForm}
                   type="button"
-                  className="px-5 py-2.5 border border-white/10 text-xs text-[#AFA89F] hover:text-[#F6F0E9] uppercase tracking-wider"
+                  onClick={resetForm}
+                  className="min-h-12 flex-1 rounded-lg border border-[#C9A47F]/30 px-5 py-3 text-sm text-[#E6C5A5] hover:border-[#C9A47F]"
                 >
                   New Request
                 </button>
                 <button
-                  onClick={onClose}
                   type="button"
-                  className="px-7 py-2.5 bg-[#C9A47F] text-[#0B0B0B] text-xs font-semibold uppercase tracking-wider hover:bg-[#DFCAAF]"
+                  onClick={() => { resetForm(); onClose(); }}
+                  className="min-h-12 flex-1 rounded-lg bg-[#C9A47F] px-5 py-3 text-sm font-semibold text-[#18120E] hover:bg-[#E0C3A5]"
                 >
                   Done
                 </button>
               </div>
             </div>
           ) : (
-            /* Interactive Booking Form */
-            <form onSubmit={handleSubmit} className="space-y-6">
-              
-              {/* Consultation Format (In-Person vs Virtual) */}
+            <form onSubmit={handleSubmit} noValidate className="space-y-4 sm:space-y-5">
               <div>
-                <label className="block text-xs uppercase tracking-[0.14em] text-[#C9A47F] font-sans font-medium mb-2.5">
-                  Consultation Format
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setConsultType('in-person')}
-                    className={`p-3.5 border text-left flex items-start gap-3 transition-colors cursor-pointer ${
-                      consultType === 'in-person'
-                        ? 'border-[#C9A47F] bg-[#24201E]'
-                        : 'border-white/10 bg-[#12100F] hover:border-white/20'
-                    }`}
-                  >
-                    <MapPin className="w-4 h-4 text-[#C9A47F] shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-xs font-medium text-[#F6F0E9]">In-Person Consultation</p>
-                      <p className="text-[11px] text-[#AFA89F] mt-0.5">Shalby Hospital, Mohali</p>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setConsultType('virtual')}
-                    className={`p-3.5 border text-left flex items-start gap-3 transition-colors cursor-pointer ${
-                      consultType === 'virtual'
-                        ? 'border-[#C9A47F] bg-[#24201E]'
-                        : 'border-white/10 bg-[#12100F] hover:border-white/20'
-                    }`}
-                  >
-                    <Video className="w-4 h-4 text-[#C9A47F] shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-xs font-medium text-[#F6F0E9]">Virtual Teleconsultation</p>
-                      <p className="text-[11px] text-[#AFA89F] mt-0.5">Outstation &amp; International</p>
-                    </div>
-                  </button>
-                </div>
+                <label htmlFor="consult-name" className={labelClass}>Full Name <span className="text-[#C9A47F]">*</span></label>
+                <input
+                  id="consult-name"
+                  type="text"
+                  autoComplete="name"
+                  required
+                  maxLength={100}
+                  placeholder="Enter your full name"
+                  value={fullName}
+                  onChange={(e) => { setFullName(e.target.value); setErrors((prev) => ({ ...prev, fullName: '' })); }}
+                  aria-invalid={Boolean(errors.fullName)}
+                  aria-describedby={errors.fullName ? 'consult-name-error' : undefined}
+                  className={fieldClass + ' ' + (errors.fullName ? 'border-rose-500' : 'border-[#C9A47F]/25')}
+                />
+                {errors.fullName && <p id="consult-name-error" className="mt-1.5 text-xs text-rose-300">{errors.fullName}</p>}
               </div>
 
-              {/* Procedure of Interest */}
               <div>
-                <label className="block text-xs uppercase tracking-[0.14em] text-[#C9A47F] font-sans font-medium mb-2">
-                  Procedure of Interest
-                </label>
-                <select
-                  value={selectedTreatment}
-                  onChange={(e) => setSelectedTreatment(e.target.value)}
-                  className="w-full bg-[#12100F] border border-[#C9A47F]/30 p-3 text-xs text-[#F6F0E9] focus:outline-none focus:border-[#C9A47F]"
-                >
-                  {TREATMENTS_DATA.map((t) => (
-                    <option key={t.id} value={t.title} className="bg-[#12100F]">
-                      {t.title} — {t.tagline}
-                    </option>
-                  ))}
-                  <option value="Comprehensive Aesthetic Assessment" className="bg-[#12100F]">
-                    Comprehensive Facial &amp; Body Aesthetic Assessment
-                  </option>
-                  <option value="Reconstructive Surgery" className="bg-[#12100F]">
-                    Plastic &amp; Reconstructive Surgery
-                  </option>
-                </select>
+                <label htmlFor="consult-phone" className={labelClass}>Phone Number <span className="text-[#C9A47F]">*</span></label>
+                <input
+                  id="consult-phone"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  required
+                  maxLength={30}
+                  placeholder="e.g. +91 98765 43210"
+                  value={phone}
+                  onChange={(e) => { setPhone(e.target.value); setErrors((prev) => ({ ...prev, phone: '' })); }}
+                  aria-invalid={Boolean(errors.phone)}
+                  aria-describedby={errors.phone ? 'consult-phone-error' : undefined}
+                  className={fieldClass + ' ' + (errors.phone ? 'border-rose-500' : 'border-[#C9A47F]/25')}
+                />
+                {errors.phone && <p id="consult-phone-error" className="mt-1.5 text-xs text-rose-300">{errors.phone}</p>}
               </div>
 
-              {/* Preferred Date & Time */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs uppercase tracking-[0.14em] text-[#C9A47F] font-sans font-medium mb-2">
-                    Preferred Date
-                  </label>
-                  <input
-                    type="date"
-                    min={getTomorrowDateString()}
-                    value={preferredDate}
-                    onChange={(e) => {
-                      setPreferredDate(e.target.value);
-                      if (errors.preferredDate) setErrors({ ...errors, preferredDate: '' });
-                    }}
-                    className={`w-full bg-[#12100F] border p-3 text-xs text-[#F6F0E9] focus:outline-none focus:border-[#C9A47F] ${
-                      errors.preferredDate ? 'border-rose-500' : 'border-[#C9A47F]/30'
-                    }`}
-                  />
-                  {errors.preferredDate && (
-                    <p className="text-[11px] text-rose-400 mt-1">{errors.preferredDate}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs uppercase tracking-[0.14em] text-[#C9A47F] font-sans font-medium mb-2">
-                    Preferred Time Slot
-                  </label>
-                  <select
-                    value={preferredTime}
-                    onChange={(e) => setPreferredTime(e.target.value)}
-                    className="w-full bg-[#12100F] border border-[#C9A47F]/30 p-3 text-xs text-[#F6F0E9] focus:outline-none focus:border-[#C9A47F]"
-                  >
-                    <option value="10:30 AM">Morning: 10:30 AM</option>
-                    <option value="11:30 AM">Morning: 11:30 AM</option>
-                    <option value="12:30 PM">Afternoon: 12:30 PM</option>
-                    <option value="02:30 PM">Afternoon: 02:30 PM</option>
-                    <option value="03:30 PM">Afternoon: 03:30 PM</option>
-                    <option value="04:30 PM">Afternoon: 04:30 PM</option>
-                  </select>
-                </div>
+              <div>
+                <label htmlFor="consult-concern" className={labelClass}>Treatment or Concern <span className="text-[#C9A47F]">*</span></label>
+                <input
+                  id="consult-concern"
+                  type="text"
+                  required
+                  maxLength={100}
+                  placeholder="e.g. Rhinoplasty, scar treatment, consultation"
+                  value={concern}
+                  onChange={(e) => { setConcern(e.target.value); setErrors((prev) => ({ ...prev, concern: '' })); }}
+                  aria-invalid={Boolean(errors.concern)}
+                  aria-describedby={errors.concern ? 'consult-concern-error' : undefined}
+                  className={fieldClass + ' ' + (errors.concern ? 'border-rose-500' : 'border-[#C9A47F]/25')}
+                />
+                {errors.concern && <p id="consult-concern-error" className="mt-1.5 text-xs text-rose-300">{errors.concern}</p>}
               </div>
 
-              {/* Patient Personal Details */}
-              <div className="space-y-4 pt-2">
-                <div>
-                  <label className="block text-xs uppercase tracking-[0.14em] text-[#C9A47F] font-sans font-medium mb-1.5">
-                    Full Name *
-                  </label>
-                  <input
-                    type="text"
-                    autoComplete="name"
-                    placeholder="e.g. Eleanor Vance"
-                    value={fullName}
-                    onChange={(e) => {
-                      setFullName(e.target.value);
-                      if (errors.fullName) setErrors({ ...errors, fullName: '' });
-                    }}
-                    className={`w-full bg-[#12100F] border p-3 text-xs text-[#F6F0E9] placeholder-[#7C766F] focus:outline-none focus:border-[#C9A47F] ${
-                      errors.fullName ? 'border-rose-500' : 'border-[#C9A47F]/30'
-                    }`}
-                  />
-                  {errors.fullName && (
-                    <p className="text-[11px] text-rose-400 mt-1">{errors.fullName}</p>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs uppercase tracking-[0.14em] text-[#C9A47F] font-sans font-medium mb-1.5">
-                      Phone Number *
-                    </label>
-                    <input
-                      type="tel"
-                      inputMode="tel"
-                      autoComplete="tel"
-                      placeholder="+91 98765 43210"
-                      value={phone}
-                      onChange={(e) => {
-                        setPhone(e.target.value);
-                        if (errors.phone) setErrors({ ...errors, phone: '' });
-                      }}
-                      className={`w-full bg-[#12100F] border p-3 text-xs text-[#F6F0E9] placeholder-[#7C766F] focus:outline-none focus:border-[#C9A47F] ${
-                        errors.phone ? 'border-rose-500' : 'border-[#C9A47F]/30'
-                      }`}
-                    />
-                    {errors.phone && (
-                      <p className="text-[11px] text-rose-400 mt-1">{errors.phone}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs uppercase tracking-[0.14em] text-[#C9A47F] font-sans font-medium mb-1.5">
-                      Email Address *
-                    </label>
-                    <input
-                      type="email"
-                      inputMode="email"
-                      autoComplete="email"
-                      placeholder="patient@example.com"
-                      value={email}
-                      onChange={(e) => {
-                        setEmail(e.target.value);
-                        if (errors.email) setErrors({ ...errors, email: '' });
-                      }}
-                      className={`w-full bg-[#12100F] border p-3 text-xs text-[#F6F0E9] placeholder-[#7C766F] focus:outline-none focus:border-[#C9A47F] ${
-                        errors.email ? 'border-rose-500' : 'border-[#C9A47F]/30'
-                      }`}
-                    />
-                    {errors.email && (
-                      <p className="text-[11px] text-rose-400 mt-1">{errors.email}</p>
-                    )}
-                  </div>
-                </div>
-
+              <div>
+                <label htmlFor="consult-date" className={labelClass}>Preferred Date <span className="font-normal text-[#9C8B7D]">(optional)</span></label>
+                <input
+                  id="consult-date"
+                  type="date"
+                  min={tomorrowLocalDate()}
+                  value={preferredDate}
+                  onChange={(e) => { setPreferredDate(e.target.value); setErrors((prev) => ({ ...prev, preferredDate: '' })); }}
+                  aria-invalid={Boolean(errors.preferredDate)}
+                  aria-describedby={errors.preferredDate ? 'consult-date-error' : undefined}
+                  className={fieldClass + ' ' + (errors.preferredDate ? 'border-rose-500' : 'border-[#C9A47F]/25')}
+                />
+                {errors.preferredDate && <p id="consult-date-error" className="mt-1.5 text-xs text-rose-300">{errors.preferredDate}</p>}
               </div>
 
-              {/* Direct Configurable Destination Clarification */}
-              <div className="p-3.5 bg-[#141211] border border-[#C9A47F]/20 text-[11px] text-[#AFA89F] flex items-start gap-2.5">
-                <ShieldCheck className="w-4 h-4 text-[#C9A47F] shrink-0 mt-0.5" />
-                <div>
-                  <span className="text-[#F6F0E9] font-medium">Configured Clinic Destination: </span>
-                  This is a request, not a confirmed appointment. Please share medical details privately with the clinic.
-                </div>
+              <div>
+                <label htmlFor="consult-message" className={labelClass}>Additional Message <span className="font-normal text-[#9C8B7D]">(optional)</span></label>
+                <textarea
+                  id="consult-message"
+                  rows={3}
+                  maxLength={300}
+                  placeholder="e.g. Please call after 4 PM"
+                  value={additionalMessage}
+                  onChange={(e) => setAdditionalMessage(e.target.value)}
+                  className={fieldClass + ' min-h-24 resize-y border-[#C9A47F]/25'}
+                />
+                <p className="mt-1.5 text-[11px] leading-relaxed text-[#9F9285]">
+                  For appointment preferences only. Please do not enter medical history or sensitive health details.
+                </p>
               </div>
 
-              {submitError && <div role="alert" className="p-3 border border-rose-500/40 bg-rose-950/40 text-xs text-rose-200">{submitError}</div>}
-              {/* Form Action Buttons */}
-              <div className="pt-2 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="w-full sm:w-auto px-5 py-3 border border-white/10 text-xs text-[#AFA89F] hover:text-[#F6F0E9] uppercase tracking-wider cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full sm:w-auto px-6 sm:px-8 py-3.5 bg-[#C9A47F] text-[#0B0B0B] text-xs font-semibold uppercase tracking-[0.16em] hover:bg-[#DFCAAF] transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {isSubmitting ? 'Sending Request...' : 'Confirm & Request Slot'}
-                </button>
-              </div>
+              {submitError && (
+                <p role="alert" className="rounded-lg border border-rose-500/40 bg-rose-950/30 px-4 py-3 text-sm leading-relaxed text-rose-200">
+                  {submitError}
+                </p>
+              )}
 
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="group flex min-h-13 w-full items-center justify-center gap-3 rounded-lg bg-[#C9A47F] px-5 py-4 text-[14px] font-bold text-[#16110E] shadow-[0_10px_26px_rgba(201,164,127,0.12)] transition-colors hover:bg-[#E0C3A5] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#C9A47F] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSubmitting ? 'Submitting Request…' : 'Request Appointment'}
+                {!isSubmitting && <ArrowRight aria-hidden="true" className="size-4 transition-transform group-hover:translate-x-1" />}
+              </button>
+              <p className="flex items-start justify-center gap-2 text-center text-[11px] leading-[1.6] text-[#A99D91]">
+                <ShieldCheck aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-[#C9A47F]" />
+                Your request is private. Our team will contact you to confirm availability.
+              </p>
             </form>
           )}
         </div>
@@ -469,4 +339,3 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
     </motion.div>
   );
 };
-

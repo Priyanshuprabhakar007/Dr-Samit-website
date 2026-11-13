@@ -12,7 +12,7 @@ class RateLimitError extends Error {}
 async function checkRateLimit(
   db: ReturnType<typeof getClinicAdmin>['db'],
   ip: string,
-  email: string,
+  phone: string,
 ) {
   const secret = process.env.ENQUIRY_RATE_LIMIT_SECRET;
   if (!secret || secret.length < 32) throw new Error('Server-side rate limiting is not configured.');
@@ -20,7 +20,7 @@ async function checkRateLimit(
   const encode = (key: string) => createHmac('sha256', secret).update(key).digest('hex');
   const keys = [
     { key: encode(`ip:${ip}:${windowId}`), max: 10 },
-    { key: encode(`email:${email}:${windowId}`), max: 4 },
+    { key: encode(`phone:${phone.replace(/\D/g, '')}:${windowId}`), max: 4 },
   ];
   const refs = keys.map(item => db.collection('enquiry_rate_limits').doc(item.key));
   await db.runTransaction(async tx => {
@@ -60,7 +60,7 @@ export default {
       // callers cannot bypass the per-email limit by changing IP headers.
       const ip = request.headers.get('x-vercel-forwarded-for') ||
         request.headers.get('x-forwarded-for') || 'unknown';
-      await checkRateLimit(db, ip.split(',')[0].trim(), enquiry.email);
+      await checkRateLimit(db, ip.split(',')[0].trim(), enquiry.phone);
 
       const referenceCode = `SS-${randomUUID().slice(0, 12).toUpperCase()}`;
       const now = new Date().toISOString();

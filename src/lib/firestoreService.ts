@@ -35,6 +35,8 @@ export interface EnquiryRecord {
   preferredDate: string;
   preferredTime: string;
   clinicalNotes?: string;
+  /** Optional scheduling note entered through the simplified public form. */
+  additionalMessage?: string;
   status: 'new' | 'contacted' | 'scheduled' | 'closed';
   createdAt: string;
   updatedAt?: string;
