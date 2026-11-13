@@ -1,6 +1,116 @@
 import { createHmac, randomUUID } from 'node:crypto';
-import { getClinicAdmin } from '../src/server/vercelFirebase.js';
-import { validateEnquiry } from '../src/server/enquiryValidation.js';
+
+
+/**
+ * Self-contained Firebase Admin bootstrap: Vercel's TypeScript function build
+ * must not load sibling project source files through unresolved ESM imports.
+ * Project/database identifiers are public Firebase configuration, not secrets.
+ */
+import { cert, getApp, getApps, initializeApp } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+import { getAuth } from 'firebase-admin/auth';
+
+const FIREBASE_PROJECT_ID = "gen-lang-client-0746984388";
+const FIRESTORE_DATABASE_ID = "ai-studio-drsamiksharmapla-23e071f8-1aa1-4fe5-9fd3-47be90b3af23";
+
+function getClinicAdmin() {
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (!raw) throw new Error('Firebase Admin credentials are not configured.');
+  const credentials = JSON.parse(raw) as {
+    project_id?: string;
+    client_email?: string;
+    private_key?: string;
+  };
+  if (
+    credentials.project_id !== FIREBASE_PROJECT_ID ||
+    !credentials.client_email ||
+    !credentials.private_key
+  ) {
+    throw new Error('Firebase Admin credentials do not match this website project.');
+  }
+  const appName = 'dr-samik-vercel-api';
+  const app = getApps().some(app => app.name === appName)
+    ? getApp(appName)
+    : initializeApp({
+        credential: cert({
+          projectId: credentials.project_id,
+          clientEmail: credentials.client_email,
+          privateKey: credentials.private_key.replace(/\\n/g, '\n'),
+        }),
+        projectId: FIREBASE_PROJECT_ID,
+      }, appName);
+
+  return {
+    db: getFirestore(app, FIRESTORE_DATABASE_ID),
+    auth: getAuth(app),
+  };
+}
+
+interface ValidEnquiry {
+  fullName: string;
+  phone: string;
+  /** Optional contact method. Phone alone is sufficient for an appointment request. */
+  email: string;
+  treatmentInterest: string;
+  consultationType: 'in-person' | 'virtual';
+  /** Patient preference, not a confirmed appointment date. May be blank. */
+  preferredDate: string;
+  /** Scheduling is arranged after a coordinator contacts the patient. */
+  preferredTime: string;
+  /** Optional non-clinical message (e.g. best time to call). */
+  additionalMessage: string;
+}
+
+/** Allow-list validation of Vercel API requests; keep in sync with the Express server.
+ * Do not copy unapproved fields or medical history into Firestore.
+ */
+function validateEnquiry(payload: unknown): ValidEnquiry {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new Error('Invalid form payload.');
+  }
+  const data = payload as Record<string, unknown>;
+  const fullName = typeof data.fullName === 'string' ? data.fullName.trim() : '';
+  const phone = typeof data.phone === 'string' ? data.phone.trim() : '';
+  const email = typeof data.email === 'string' ? data.email.trim().toLowerCase() : '';
+  const procedure = typeof data.treatmentInterest === 'string'
+    ? data.treatmentInterest.trim()
+    : typeof data.procedure === 'string' ? data.procedure.trim() : '';
+  const chosenDate = typeof data.preferredDate === 'string' ? data.preferredDate.trim() : '';
+  const preferredTime = typeof data.preferredTime === 'string' ? data.preferredTime.trim() : '';
+  const additionalMessage = typeof data.additionalMessage === 'string' ? data.additionalMessage.trim() : '';
+
+  if (fullName.length < 2 || fullName.length > 100) throw new Error('Enter your full name (2–100 characters).');
+  if (!/^[+\d()\s.\-]{7,30}$/.test(phone) || phone.replace(/\D/g, '').length < 7) {
+    throw new Error('Enter a valid contact number.');
+  }
+  if (email && (email.length > 100 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
+    throw new Error('Enter a valid email address.');
+  }
+  if (!procedure || procedure.length > 100) throw new Error('Enter the procedure or reason for your visit.');
+  if (chosenDate) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(chosenDate)) throw new Error('Choose a valid preferred date.');
+    const [year, month, day] = chosenDate.split('-').map(Number);
+    const parsed = new Date(Date.UTC(year, month - 1, day));
+    if (parsed.getUTCFullYear() !== year || parsed.getUTCMonth() + 1 !== month || parsed.getUTCDate() !== day) {
+      throw new Error('Choose a valid preferred date.');
+    }
+  }
+  if (preferredTime.length > 30) throw new Error('Invalid preferred time.');
+  if (additionalMessage.length > 300 || (data.additionalMessage !== undefined && typeof data.additionalMessage !== 'string')) {
+    throw new Error('Keep the optional message under 300 characters.');
+  }
+  if (data.consultationType !== 'in-person' && data.consultationType !== 'virtual') {
+    throw new Error('Select a consultation format.');
+  }
+
+  return {
+    fullName, phone, email, treatmentInterest: procedure,
+    consultationType: data.consultationType,
+    preferredDate: chosenDate,
+    preferredTime: preferredTime || 'To be arranged',
+    additionalMessage,
+  };
+}
 
 function json(data: object, status: number) {
   return Response.json(data, { status, headers: { 'Cache-Control': 'no-store' } });
@@ -57,7 +167,7 @@ export default {
 
       const { db } = getClinicAdmin();
       // In Vercel the forwarding header is set by the platform; direct
-      // callers cannot bypass the per-email limit by changing IP headers.
+      // callers cannot bypass the per-phone limit by changing IP headers.
       const ip = request.headers.get('x-vercel-forwarded-for') ||
         request.headers.get('x-forwarded-for') || 'unknown';
       await checkRateLimit(db, ip.split(',')[0].trim(), enquiry.phone);
