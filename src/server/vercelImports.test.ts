@@ -22,12 +22,33 @@ describe('Vercel serverless function imports', () => {
       const localImports = [...source.matchAll(/\bfrom\s+['"](\.{1,2}\/[^'"]+)['"]/g)];
 
       expect(localImports).toHaveLength(0);
-      expect(source).toContain("from 'firebase-admin/app'");
-      expect(source).toContain('function getClinicAdmin()');
+      expect(source).toContain("import('firebase-admin/app')");
+      expect(source).toContain("import('firebase-admin/firestore')");
+      expect(source).toContain('async function getClinicAdmin()');
       expect(source).toContain('export default {');
       expect(source).toContain('getFirestore(app, FIRESTORE_DATABASE_ID)');
     });
   }
+
+  test('dependency-free /api/ping stays available even if Firebase fails', () => {
+    const source = readFileSync(resolve(ROOT, 'api/ping.ts'), 'utf8');
+    expect(source).toContain("status: 'ok'");
+    expect(source).not.toContain('firebase-admin');
+    expect(source).not.toContain('process.env.');
+  });
+
+  test('API health discloses configuration status but not credentials', () => {
+    const source = readFileSync(resolve(ROOT, 'api/health.ts'), 'utf8');
+    for (const key of [
+      'firebase-credentials-missing',
+      'rate-limit-secret-missing',
+      'firebase-connection-failed',
+    ]) {
+      expect(source).toContain(key);
+    }
+    expect(source).not.toContain('private_key: credentials.private_key');
+    expect(source).not.toContain('console.error(error)');
+  });
 
   test('the serverless enquiry validator matches the development backend', () => {
     const apiSource = readFileSync(resolve(ROOT, 'api/enquiries.ts'), 'utf8');

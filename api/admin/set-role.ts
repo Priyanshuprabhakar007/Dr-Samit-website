@@ -3,14 +3,21 @@
  * must not load sibling project source files through unresolved ESM imports.
  * Project/database identifiers are public Firebase configuration, not secrets.
  */
-import { cert, getApp, getApps, initializeApp } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-import { getAuth } from 'firebase-admin/auth';
+// Lazy SDK imports let the API return a safe diagnostic response if Firebase fails to load.
 
 const FIREBASE_PROJECT_ID = "gen-lang-client-0746984388";
 const FIRESTORE_DATABASE_ID = "ai-studio-drsamiksharmapla-23e071f8-1aa1-4fe5-9fd3-47be90b3af23";
 
-function getClinicAdmin() {
+async function getClinicAdmin() {
+  const [
+    { cert, getApp, getApps, initializeApp },
+    { getFirestore },
+    { getAuth },
+  ] = await Promise.all([
+    import('firebase-admin/app'),
+    import('firebase-admin/firestore'),
+    import('firebase-admin/auth'),
+  ]);
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   if (!raw) throw new Error('Firebase Admin credentials are not configured.');
   const credentials = JSON.parse(raw) as {
